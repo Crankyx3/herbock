@@ -1,11 +1,11 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
-import { DashboardHeader } from '../../../components/employee/DashboardHeader';
-import { LiveTimeTracking } from '../../../components/employee/LiveTimeTracking';
-import { NotificationCenter } from '../../../components/employee/NotificationCenter';
-import { WeeklyStats } from '../../../components/employee/WeeklyStats';
-import { QuickAccessMenu } from '../../../components/employee/QuickAccessMenu';
-import { Colors } from '../../../constants';
+import { DashboardHeader } from '../../components/employee/DashboardHeader';
+import { LiveTimeTracking } from '../../components/employee/LiveTimeTracking';
+import { NotificationCenter } from '../../components/employee/NotificationCenter';
+import { WeeklyStats } from '../../components/employee/WeeklyStats';
+import { QuickAccessMenu } from '../../components/employee/QuickAccessMenu';
+import { Colors } from '../../constants';
 
 export default function DashboardScreen() {
   return (

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Colors, Sizes } from '../../../constants';
+import { Colors, Sizes } from '../../constants';
 
 export default function TimeTrackingScreen() {
   return (
