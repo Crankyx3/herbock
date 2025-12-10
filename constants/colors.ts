@@ -1,0 +1,31 @@
+export const Colors = {
+  primary: '#2563eb',
+  secondary: '#7c3aed',
+  accent: '#f59e0b',
+  background: '#ffffff',
+  surface: '#f3f4f6',
+  text: '#1f2937',
+  textSecondary: '#6b7280',
+  error: '#ef4444',
+  success: '#10b981',
+  warning: '#f59e0b',
+  info: '#3b82f6',
+  border: '#e5e7eb',
+  disabled: '#9ca3af',
+};
+
+export const DarkColors = {
+  primary: '#3b82f6',
+  secondary: '#8b5cf6',
+  accent: '#fbbf24',
+  background: '#111827',
+  surface: '#1f2937',
+  text: '#f9fafb',
+  textSecondary: '#d1d5db',
+  error: '#f87171',
+  success: '#34d399',
+  warning: '#fbbf24',
+  info: '#60a5fa',
+  border: '#374151',
+  disabled: '#6b7280',
+};
