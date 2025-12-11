@@ -11,7 +11,7 @@ import db from './services/db';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // ==================== Middleware ====================
 app.use(cors());
@@ -132,10 +132,11 @@ const startServer = async () => {
     await db.query('SELECT NOW()');
     console.log('✅ Database connected successfully');
 
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📡 API available at http://localhost:${PORT}/api`);
       console.log(`🏥 Health check at http://localhost:${PORT}/health`);
+      console.log(`🌐 External access: http://21.0.0.22:${PORT}`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
