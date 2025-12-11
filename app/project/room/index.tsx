@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, Dimensions, TouchableOpacity, Alert } from 'react-native';
-import { Text, FAB, Card, Chip, IconButton } from 'react-native-paper';
+import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { Text, FAB, Card, Chip, Button, TextInput, SegmentedButtons } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useProjectStore } from '../../../store/projectStore';
 import { useDefectsStore } from '../../../store/defectsStore';
+import { DefectPriority } from '../../../types';
 import { Colors, Sizes } from '../../../constants';
 
 const { width, height } = Dimensions.get('window');
@@ -14,6 +15,13 @@ export default function RoomFloorPlanScreen() {
   const { selectedProject } = useProjectStore();
   const { defects, addDefect } = useDefectsStore();
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
+
+  // Form state
+  const [showDefectForm, setShowDefectForm] = useState(false);
+  const [defectPosition, setDefectPosition] = useState({ x: 0, y: 0 });
+  const [defectTitle, setDefectTitle] = useState('');
+  const [defectDescription, setDefectDescription] = useState('');
+  const [defectPriority, setDefectPriority] = useState<DefectPriority>(DefectPriority.MEDIUM);
 
   const room = selectedProject?.rooms?.find((r) => r.id === id);
   const roomDefects = defects.filter((d) => d.roomId === id);
@@ -33,35 +41,36 @@ export default function RoomFloorPlanScreen() {
     const relativeX = locationX / imageLayout.width;
     const relativeY = locationY / imageLayout.height;
 
-    Alert.alert(
-      'Mangel hinzufügen',
-      `Möchten Sie an dieser Stelle einen Mangel markieren?`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Ja',
-          onPress: () => {
-            // Create a new defect at this location
-            addDefect({
-              projectId: selectedProject!.id,
-              roomId: room.id,
-              title: 'Neuer Mangel',
-              description: `Mangel in ${room.name}`,
-              status: 'OPEN' as any,
-              priority: 'MEDIUM' as any,
-              createdBy: 'current-user-id',
-              images: [],
-              location: {
-                x: relativeX,
-                y: relativeY,
-                floor: room.floor,
-              },
-            });
-            Alert.alert('Erfolg', 'Mangel wurde markiert');
-          },
-        },
-      ]
-    );
+    // Open form with this position
+    setDefectPosition({ x: relativeX, y: relativeY });
+    setDefectTitle('');
+    setDefectDescription('');
+    setDefectPriority(DefectPriority.MEDIUM);
+    setShowDefectForm(true);
+  };
+
+  const handleSaveDefect = () => {
+    if (!defectTitle.trim()) {
+      return;
+    }
+
+    addDefect({
+      projectId: selectedProject!.id,
+      roomId: room.id,
+      title: defectTitle.trim(),
+      description: defectDescription.trim() || `Mangel in ${room.name}`,
+      status: 'OPEN' as any,
+      priority: defectPriority,
+      createdBy: 'current-user-id',
+      images: [],
+      location: {
+        x: defectPosition.x,
+        y: defectPosition.y,
+        floor: room.floor,
+      },
+    });
+
+    setShowDefectForm(false);
   };
 
   const renderDefectMarker = (defect: any, index: number) => {
@@ -187,6 +196,96 @@ export default function RoomFloorPlanScreen() {
         label="Alle Mängel"
         onPress={() => router.push('/project/defects')}
       />
+
+      {/* Defect Form Modal */}
+      <Modal
+        visible={showDefectForm}
+        onRequestClose={() => setShowDefectForm(false)}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <ScrollView style={styles.modalContent}>
+              <Text variant="titleLarge" style={styles.modalTitle}>
+                Mangel hinzufügen
+              </Text>
+              <Text variant="bodySmall" style={styles.modalSubtitle}>
+                Position: {Math.round(defectPosition.x * 100)}%, {Math.round(defectPosition.y * 100)}%
+              </Text>
+
+              <Text variant="bodyMedium" style={styles.inputLabel}>
+                Titel *
+              </Text>
+              <TextInput
+                value={defectTitle}
+                onChangeText={setDefectTitle}
+                placeholder="z.B. Riss in der Wand"
+                mode="outlined"
+                style={styles.input}
+              />
+
+              <Text variant="bodyMedium" style={styles.inputLabel}>
+                Beschreibung
+              </Text>
+              <TextInput
+                value={defectDescription}
+                onChangeText={setDefectDescription}
+                placeholder="Detaillierte Beschreibung des Mangels..."
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={[styles.input, styles.textArea]}
+              />
+
+              <Text variant="bodyMedium" style={styles.inputLabel}>
+                Priorität
+              </Text>
+              <SegmentedButtons
+                value={defectPriority}
+                onValueChange={(value) => setDefectPriority(value as DefectPriority)}
+                buttons={[
+                  {
+                    value: DefectPriority.LOW,
+                    label: 'Niedrig',
+                  },
+                  {
+                    value: DefectPriority.MEDIUM,
+                    label: 'Mittel',
+                  },
+                  {
+                    value: DefectPriority.HIGH,
+                    label: 'Hoch',
+                  },
+                  {
+                    value: DefectPriority.CRITICAL,
+                    label: 'Kritisch',
+                  },
+                ]}
+                style={styles.segmentedButtons}
+              />
+
+              <View style={styles.modalActions}>
+                <Button
+                  mode="outlined"
+                  onPress={() => setShowDefectForm(false)}
+                  style={styles.modalButton}
+                >
+                  Abbrechen
+                </Button>
+                <Button
+                  mode="contained"
+                  onPress={handleSaveDefect}
+                  disabled={!defectTitle.trim()}
+                  style={styles.modalButton}
+                >
+                  Speichern
+                </Button>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -309,5 +408,53 @@ const styles = StyleSheet.create({
     right: Sizes.md,
     bottom: Sizes.md,
     backgroundColor: Colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalContent: {
+    padding: Sizes.lg,
+  },
+  modalTitle: {
+    fontWeight: 'bold',
+    color: Colors.text,
+    marginBottom: Sizes.xs,
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    marginBottom: Sizes.lg,
+  },
+  inputLabel: {
+    fontWeight: '600',
+    color: Colors.text,
+    marginTop: Sizes.md,
+    marginBottom: Sizes.sm,
+  },
+  input: {
+    backgroundColor: Colors.surface,
+  },
+  textArea: {
+    minHeight: 100,
+  },
+  segmentedButtons: {
+    marginTop: Sizes.xs,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Sizes.md,
+    marginTop: Sizes.xl,
+    marginBottom: Sizes.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
