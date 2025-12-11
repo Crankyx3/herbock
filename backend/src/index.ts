@@ -5,7 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import routes from './routes';
-import prisma from './services/prisma';
+import db from './services/db';
 
 // Load environment variables
 dotenv.config();
@@ -129,7 +129,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 const startServer = async () => {
   try {
     // Test database connection
-    await prisma.$connect();
+    await db.query('SELECT NOW()');
     console.log('✅ Database connected successfully');
 
     app.listen(PORT, () => {
@@ -146,7 +146,7 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n👋 Shutting down gracefully...');
-  await prisma.$disconnect();
+  await db.end();
   process.exit(0);
 });
 
