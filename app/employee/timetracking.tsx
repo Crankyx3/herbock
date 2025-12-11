@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Tabs, FAB } from 'react-native-paper';
+import { Text, SegmentedButtons } from 'react-native-paper';
 import { useTimeTrackingStore } from '../../store/timeTrackingStore';
 import { LiveTimeTrackingDetail } from '../../components/employee/LiveTimeTrackingDetail';
 import { ManualTimeEntry } from '../../components/employee/ManualTimeEntry';
@@ -16,6 +16,21 @@ export default function TimeTrackingScreen() {
     loadEntries();
   }, []);
 
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'live':
+        return <LiveTimeTrackingDetail />;
+      case 'manual':
+        return <ManualTimeEntry />;
+      case 'history':
+        return <TimeEntryHistory />;
+      case 'report':
+        return <WeeklyReport />;
+      default:
+        return <LiveTimeTrackingDetail />;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -24,35 +39,37 @@ export default function TimeTrackingScreen() {
         </Text>
       </View>
 
-      <Tabs.View
+      <SegmentedButtons
         value={activeTab}
-        onChange={setActiveTab}
-        style={styles.tabs}
-      >
-        <Tabs.Tab value="live" label="Live-Erfassung">
-          <ScrollView style={styles.tabContent}>
-            <LiveTimeTrackingDetail />
-          </ScrollView>
-        </Tabs.Tab>
+        onValueChange={setActiveTab}
+        buttons={[
+          {
+            value: 'live',
+            label: 'Live',
+            icon: 'play-circle',
+          },
+          {
+            value: 'manual',
+            label: 'Nachtrag',
+            icon: 'pencil',
+          },
+          {
+            value: 'history',
+            label: 'Historie',
+            icon: 'history',
+          },
+          {
+            value: 'report',
+            label: 'Bericht',
+            icon: 'chart-line',
+          },
+        ]}
+        style={styles.segmentedButtons}
+      />
 
-        <Tabs.Tab value="manual" label="Nacherfassung">
-          <ScrollView style={styles.tabContent}>
-            <ManualTimeEntry />
-          </ScrollView>
-        </Tabs.Tab>
-
-        <Tabs.Tab value="history" label="Historie">
-          <ScrollView style={styles.tabContent}>
-            <TimeEntryHistory />
-          </ScrollView>
-        </Tabs.Tab>
-
-        <Tabs.Tab value="report" label="Bericht">
-          <ScrollView style={styles.tabContent}>
-            <WeeklyReport />
-          </ScrollView>
-        </Tabs.Tab>
-      </Tabs.View>
+      <ScrollView style={styles.content}>
+        {renderContent()}
+      </ScrollView>
     </View>
   );
 }
@@ -72,10 +89,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.text,
   },
-  tabs: {
-    flex: 1,
+  segmentedButtons: {
+    margin: Sizes.md,
   },
-  tabContent: {
+  content: {
     flex: 1,
   },
 });
