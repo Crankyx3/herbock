@@ -13,8 +13,10 @@ export const LiveTimeTracking = () => {
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (currentEntry?.isRunning) {
-      interval = setInterval(() => {
+    const updateElapsedTime = () => {
+      if (!currentEntry) return;
+
+      if (currentEntry.isRunning) {
         const now = new Date();
         const sessionTime = now.getTime() - new Date(currentEntry.startTime).getTime();
         const totalTime = sessionTime + ((currentEntry.duration || 0) * 60 * 60 * 1000);
@@ -26,15 +28,25 @@ export const LiveTimeTracking = () => {
         setElapsedTime(
           `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
         );
-      }, 1000);
-    } else if (currentEntry) {
-      // Show paused time
-      const totalHours = currentEntry.duration || 0;
-      const hours = Math.floor(totalHours);
-      const minutes = Math.floor((totalHours * 60) % 60);
-      setElapsedTime(
-        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
-      );
+      } else {
+        // Show paused time
+        const totalMilliseconds = (currentEntry.duration || 0) * 60 * 60 * 1000;
+        const hours = Math.floor(totalMilliseconds / 1000 / 60 / 60);
+        const minutes = Math.floor((totalMilliseconds / 1000 / 60) % 60);
+        const seconds = Math.floor((totalMilliseconds / 1000) % 60);
+
+        setElapsedTime(
+          `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+        );
+      }
+    };
+
+    // Initial update
+    updateElapsedTime();
+
+    // Start interval only if running
+    if (currentEntry?.isRunning) {
+      interval = setInterval(updateElapsedTime, 1000);
     }
 
     return () => {
