@@ -21,6 +21,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve admin dashboard
+app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
+
 // ==================== File Upload Configuration ====================
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, '../uploads');
