@@ -21,7 +21,7 @@ export default function ProjectLayout() {
         }}
       />
       <Stack.Screen
-        name="[id]"
+        name="detail/index"
         options={{
           title: 'Projekt-Details',
         }}

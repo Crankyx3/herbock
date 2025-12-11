@@ -17,10 +17,19 @@ interface ProjectItemProps {
 
 const ProjectItem = ({ id, name, description, status, unreadMessages, openDefects }: ProjectItemProps) => {
   const router = useRouter();
+  const { projects, setSelectedProject } = useProjectStore();
+
+  const handlePress = () => {
+    const project = projects.find((p) => p.id === id);
+    if (project) {
+      setSelectedProject(project);
+      router.push('/project/detail/index');
+    }
+  };
 
   return (
     <Card style={styles.card}>
-      <TouchableOpacity onPress={() => router.push(`/project/${id}` as any)}>
+      <TouchableOpacity onPress={handlePress}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.projectName}>
             {name}

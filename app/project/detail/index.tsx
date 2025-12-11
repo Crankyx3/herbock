@@ -7,15 +7,13 @@ import { Colors, Sizes } from '../../constants';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { projects, selectedProject, setSelectedProject } = useProjectStore();
+  const { projects, selectedProject, setSelectedProject, loadProjects } = useProjectStore();
 
   useEffect(() => {
-    const project = projects.find((p) => p.id === id);
-    if (project) {
-      setSelectedProject(project);
+    if (projects.length === 0) {
+      loadProjects();
     }
-  }, [id, projects]);
+  }, []);
 
   if (!selectedProject) {
     return (
