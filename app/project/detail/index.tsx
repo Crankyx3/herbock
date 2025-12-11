@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, List, Divider } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useProjectStore } from '../../store/projectStore';
-import { Colors, Sizes } from '../../constants';
+import { useProjectStore } from '../../../store/projectStore';
+import { Colors, Sizes } from '../../../constants';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
