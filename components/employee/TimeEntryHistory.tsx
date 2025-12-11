@@ -11,8 +11,8 @@ export const TimeEntryHistory = () => {
 
   const filteredEntries = entries.filter(
     (entry) =>
-      entry.activity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.projectId.toLowerCase().includes(searchQuery.toLowerCase())
+      entry.activity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      entry.projectId?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const formatDate = (date: Date) => {
