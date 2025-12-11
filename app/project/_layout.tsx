@@ -21,6 +21,12 @@ export default function ProjectLayout() {
         }}
       />
       <Stack.Screen
+        name="[id]"
+        options={{
+          title: 'Projekt-Details',
+        }}
+      />
+      <Stack.Screen
         name="chat/index"
         options={{
           title: 'Projekt-Chat',
