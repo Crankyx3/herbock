@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Card, Text, Button, TextInput, IconButton } from 'react-native-paper';
 import { useTimeTrackingStore } from '../../store/timeTrackingStore';
 import { useProjectStore } from '../../store/projectStore';
@@ -53,6 +53,7 @@ export const LiveTimeTrackingDetail = () => {
 
   if (currentEntry?.isRunning) {
     return (
+      <ScrollView style={styles.scrollView}>
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.activeHeader}>
@@ -119,11 +120,12 @@ export const LiveTimeTrackingDetail = () => {
           </View>
         </Card.Content>
       </Card>
+      </ScrollView>
     );
   }
 
   return (
-    <>
+    <ScrollView style={styles.scrollView}>
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -173,11 +175,14 @@ export const LiveTimeTrackingDetail = () => {
         onDismiss={() => setShowProjectModal(false)}
         onSelect={handleProjectSelect}
       />
-    </>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   card: {
     margin: Sizes.md,
     elevation: 2,

@@ -67,9 +67,9 @@ export default function TimeTrackingScreen() {
         style={styles.segmentedButtons}
       />
 
-      <ScrollView style={styles.content}>
+      <View style={styles.content}>
         {renderContent()}
-      </ScrollView>
+      </View>
     </View>
   );
 }

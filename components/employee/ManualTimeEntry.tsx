@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { Card, Text, Button, TextInput } from 'react-native-paper';
 import { DatePickerModal, TimePickerModal } from 'react-native-paper-dates';
 import { useTimeTrackingStore } from '../../store/timeTrackingStore';
@@ -86,7 +86,7 @@ export const ManualTimeEntry = () => {
   };
 
   return (
-    <>
+    <ScrollView style={styles.scrollView}>
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleLarge" style={styles.sectionTitle}>
@@ -229,11 +229,14 @@ export const ManualTimeEntry = () => {
         hours={endTime.hours}
         minutes={endTime.minutes}
       />
-    </>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
   card: {
     margin: Sizes.md,
     elevation: 2,
