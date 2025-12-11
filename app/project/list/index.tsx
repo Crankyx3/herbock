@@ -23,7 +23,7 @@ const ProjectItem = ({ id, name, description, status, unreadMessages, openDefect
     const project = projects.find((p) => p.id === id);
     if (project) {
       setSelectedProject(project);
-      router.push('../detail/index');
+      router.push('../detail');
     }
   };
 
