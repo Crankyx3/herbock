@@ -60,7 +60,7 @@ export default function ProjectDetailScreen() {
                 <List.Icon {...props} icon="chevron-right" />
               )
             )}
-            onPress={() => router.push('/project/chat/index')}
+            onPress={() => router.push('../chat/index')}
             style={styles.listItem}
           />
 
@@ -71,7 +71,7 @@ export default function ProjectDetailScreen() {
             description={`${selectedProject.openDefects} offene Mängel`}
             left={(props) => <List.Icon {...props} icon="alert-circle" color={selectedProject.openDefects > 0 ? Colors.warning : undefined} />}
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/defects/index')}
+            onPress={() => router.push('../defects/index')}
             style={styles.listItem}
           />
 
@@ -82,7 +82,7 @@ export default function ProjectDetailScreen() {
             description="Messungen und Aufmaße"
             left={(props) => <List.Icon {...props} icon="ruler" />}
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/measurement/index')}
+            onPress={() => router.push('../measurement/index')}
             style={styles.listItem}
           />
 
@@ -93,7 +93,7 @@ export default function ProjectDetailScreen() {
             description="Pläne und Dokumente"
             left={(props) => <List.Icon {...props} icon="file-document" />}
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/documentation/index')}
+            onPress={() => router.push('../documentation/index')}
             style={styles.listItem}
           />
         </Card.Content>
