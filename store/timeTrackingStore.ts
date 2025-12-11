@@ -12,6 +12,7 @@ interface TimeTrackingState {
   startTimer: (projectId: string, projectName: string, activity: string) => void;
   stopTimer: () => void;
   pauseTimer: () => void;
+  resumeTimer: () => void;
   addManualEntry: (entry: Omit<TimeEntry, 'id' | 'userId' | 'isRunning'>) => void;
   deleteEntry: (id: string) => void;
   updateEntry: (id: string, updates: Partial<TimeEntry>) => void;
@@ -102,11 +103,35 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   pauseTimer: () => {
     const { currentEntry } = get();
 
-    if (currentEntry) {
-      // Save current state as paused
-      const pausedEntry = { ...currentEntry, isRunning: false };
+    if (currentEntry && currentEntry.isRunning) {
+      // Calculate elapsed time so far
+      const now = new Date();
+      const elapsed = (now.getTime() - new Date(currentEntry.startTime).getTime()) / 1000 / 60 / 60; // hours
+
+      const pausedEntry = {
+        ...currentEntry,
+        isRunning: false,
+        duration: (currentEntry.duration || 0) + elapsed,
+        startTime: now, // Will be updated when resumed
+      };
+
       set({ currentEntry: pausedEntry });
       AsyncStorage.setItem('currentTimeEntry', JSON.stringify(pausedEntry));
+    }
+  },
+
+  resumeTimer: () => {
+    const { currentEntry } = get();
+
+    if (currentEntry && !currentEntry.isRunning) {
+      const resumedEntry = {
+        ...currentEntry,
+        isRunning: true,
+        startTime: new Date(), // New start time for this session
+      };
+
+      set({ currentEntry: resumedEntry });
+      AsyncStorage.setItem('currentTimeEntry', JSON.stringify(resumedEntry));
     }
   },
 

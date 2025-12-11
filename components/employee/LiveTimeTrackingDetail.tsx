@@ -8,7 +8,7 @@ import { Project } from '../../types';
 import { Colors, Sizes } from '../../constants';
 
 export const LiveTimeTrackingDetail = () => {
-  const { currentEntry, startTimer, stopTimer, pauseTimer } = useTimeTrackingStore();
+  const { currentEntry, startTimer, stopTimer, pauseTimer, resumeTimer } = useTimeTrackingStore();
   const { selectedProject, setSelectedProject } = useProjectStore();
 
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -21,10 +21,12 @@ export const LiveTimeTrackingDetail = () => {
     if (currentEntry?.isRunning) {
       interval = setInterval(() => {
         const now = new Date();
-        const diff = now.getTime() - new Date(currentEntry.startTime).getTime();
-        const hours = Math.floor(diff / 1000 / 60 / 60);
-        const minutes = Math.floor((diff / 1000 / 60) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
+        const sessionTime = now.getTime() - new Date(currentEntry.startTime).getTime();
+        const totalTime = sessionTime + ((currentEntry.duration || 0) * 60 * 60 * 1000);
+
+        const hours = Math.floor(totalTime / 1000 / 60 / 60);
+        const minutes = Math.floor((totalTime / 1000 / 60) % 60);
+        const seconds = Math.floor((totalTime / 1000) % 60);
 
         setElapsedTime(
           `${hours.toString().padStart(2, '0')}:${minutes
@@ -32,6 +34,16 @@ export const LiveTimeTrackingDetail = () => {
             .padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
         );
       }, 1000);
+    } else if (currentEntry) {
+      // Show paused time
+      const totalHours = currentEntry.duration || 0;
+      const hours = Math.floor(totalHours);
+      const minutes = Math.floor((totalHours * 60) % 60);
+      setElapsedTime(
+        `${hours.toString().padStart(2, '0')}:${minutes
+          .toString()
+          .padStart(2, '0')}:00`
+      );
     }
 
     return () => {
@@ -51,16 +63,19 @@ export const LiveTimeTrackingDetail = () => {
     setSelectedProject(project);
   };
 
-  if (currentEntry?.isRunning) {
+  if (currentEntry) {
+    const isRunning = currentEntry.isRunning;
+
     return (
       <ScrollView style={styles.scrollView}>
       <Card style={styles.card}>
         <Card.Content>
           <View style={styles.activeHeader}>
             <Text variant="titleLarge" style={styles.sectionTitle}>
-              Timer läuft
+              {isRunning ? 'Timer läuft' : 'Timer pausiert'}
             </Text>
-            <View style={styles.statusIndicator} />
+            {isRunning && <View style={styles.statusIndicator} />}
+            {!isRunning && <View style={styles.pausedIndicator} />}
           </View>
 
           <Text variant="displayMedium" style={styles.timer}>
@@ -100,14 +115,25 @@ export const LiveTimeTrackingDetail = () => {
           </View>
 
           <View style={styles.actions}>
-            <Button
-              mode="outlined"
-              onPress={pauseTimer}
-              style={styles.actionButton}
-              icon="pause"
-            >
-              Pause
-            </Button>
+            {isRunning ? (
+              <Button
+                mode="outlined"
+                onPress={pauseTimer}
+                style={styles.actionButton}
+                icon="pause"
+              >
+                Pause
+              </Button>
+            ) : (
+              <Button
+                mode="contained"
+                onPress={resumeTimer}
+                style={styles.actionButton}
+                icon="play"
+              >
+                Fortsetzen
+              </Button>
+            )}
             <Button
               mode="contained"
               onPress={stopTimer}
@@ -203,6 +229,12 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: Colors.success,
+  },
+  pausedIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.warning,
   },
   timer: {
     textAlign: 'center',

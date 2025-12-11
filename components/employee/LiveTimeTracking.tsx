@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Button, IconButton } from 'react-native-paper';
+import { Card, Text, Button } from 'react-native-paper';
 import { useTimeTrackingStore } from '../../store/timeTrackingStore';
+import { useRouter } from 'expo-router';
 import { Colors, Sizes } from '../../constants';
 
 export const LiveTimeTracking = () => {
-  const { currentEntry, startTimer, stopTimer } = useTimeTrackingStore();
+  const { currentEntry, pauseTimer, resumeTimer, stopTimer } = useTimeTrackingStore();
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
+  const router = useRouter();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -14,15 +16,25 @@ export const LiveTimeTracking = () => {
     if (currentEntry?.isRunning) {
       interval = setInterval(() => {
         const now = new Date();
-        const diff = now.getTime() - new Date(currentEntry.startTime).getTime();
-        const hours = Math.floor(diff / 1000 / 60 / 60);
-        const minutes = Math.floor((diff / 1000 / 60) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
+        const sessionTime = now.getTime() - new Date(currentEntry.startTime).getTime();
+        const totalTime = sessionTime + ((currentEntry.duration || 0) * 60 * 60 * 1000);
+
+        const hours = Math.floor(totalTime / 1000 / 60 / 60);
+        const minutes = Math.floor((totalTime / 1000 / 60) % 60);
+        const seconds = Math.floor((totalTime / 1000) % 60);
 
         setElapsedTime(
           `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
         );
       }, 1000);
+    } else if (currentEntry) {
+      // Show paused time
+      const totalHours = currentEntry.duration || 0;
+      const hours = Math.floor(totalHours);
+      const minutes = Math.floor((totalHours * 60) % 60);
+      setElapsedTime(
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`
+      );
     }
 
     return () => {
@@ -43,7 +55,7 @@ export const LiveTimeTracking = () => {
             </Text>
             <Button
               mode="contained"
-              onPress={() => startTimer('mock-project-id', 'Arbeit')}
+              onPress={() => router.push('/employee/timetracking' as any)}
               style={styles.startButton}
               icon="play"
             >
@@ -55,15 +67,18 @@ export const LiveTimeTracking = () => {
     );
   }
 
+  const isRunning = currentEntry.isRunning;
+
   return (
     <Card style={styles.card}>
       <Card.Content>
         <View style={styles.activeContainer}>
           <View style={styles.header}>
             <Text variant="titleMedium" style={styles.title}>
-              Zeiterfassung läuft
+              {isRunning ? 'Zeiterfassung läuft' : 'Zeiterfassung pausiert'}
             </Text>
-            <View style={styles.statusIndicator} />
+            {isRunning && <View style={styles.statusIndicator} />}
+            {!isRunning && <View style={styles.pausedIndicator} />}
           </View>
 
           <Text variant="displaySmall" style={styles.timer}>
@@ -89,14 +104,25 @@ export const LiveTimeTracking = () => {
           </View>
 
           <View style={styles.actions}>
-            <Button
-              mode="outlined"
-              onPress={() => {}}
-              style={styles.actionButton}
-              icon="pause"
-            >
-              Pause
-            </Button>
+            {isRunning ? (
+              <Button
+                mode="outlined"
+                onPress={pauseTimer}
+                style={styles.actionButton}
+                icon="pause"
+              >
+                Pause
+              </Button>
+            ) : (
+              <Button
+                mode="contained"
+                onPress={resumeTimer}
+                style={styles.actionButton}
+                icon="play"
+              >
+                Fortsetzen
+              </Button>
+            )}
             <Button
               mode="contained"
               onPress={stopTimer}
@@ -148,6 +174,12 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: Colors.success,
+  },
+  pausedIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.warning,
   },
   timer: {
     textAlign: 'center',
