@@ -1,16 +1,19 @@
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Text, List, Divider } from 'react-native-paper';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ScrollView, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { Card, Text, Chip } from 'react-native-paper';
+import { useRouter } from 'expo-router';
 import { useProjectStore } from '../../../store/projectStore';
+import { useDefectsStore } from '../../../store/defectsStore';
 import { Colors, Sizes } from '../../../constants';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
-  const { projects, selectedProject, setSelectedProject, loadProjects } = useProjectStore();
+  const { selectedProject, loadProjects } = useProjectStore();
+  const { defects } = useDefectsStore();
 
   useEffect(() => {
-    if (projects.length === 0) {
+    if (!selectedProject) {
       loadProjects();
     }
   }, []);
@@ -22,6 +25,73 @@ export default function ProjectDetailScreen() {
       </View>
     );
   }
+
+  const getRoomDefects = (roomId: string) => {
+    return defects.filter((d) => d.roomId === roomId && d.projectId === selectedProject.id);
+  };
+
+  const renderRoom = (room: any) => {
+    const roomDefects = getRoomDefects(room.id);
+    const openDefects = roomDefects.filter((d) => d.status === 'OPEN').length;
+
+    return (
+      <TouchableOpacity
+        key={room.id}
+        onPress={() => {
+          // Navigate to room floor plan
+          router.push(`/project/room?id=${room.id}`);
+        }}
+      >
+        <Card style={styles.roomCard}>
+          <Card.Content>
+            <View style={styles.roomHeader}>
+              <View style={styles.roomInfo}>
+                <MaterialCommunityIcons
+                  name="floor-plan"
+                  size={24}
+                  color={Colors.primary}
+                  style={styles.roomIcon}
+                />
+                <View>
+                  <Text variant="titleMedium" style={styles.roomTitle}>
+                    {room.name}
+                  </Text>
+                  <Text variant="bodySmall" style={styles.roomMeta}>
+                    {room.floor && `${room.floor} · `}
+                    {room.area && `${room.area} m²`}
+                  </Text>
+                </View>
+              </View>
+
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color={Colors.textSecondary}
+              />
+            </View>
+
+            {room.description && (
+              <Text variant="bodySmall" style={styles.roomDescription}>
+                {room.description}
+              </Text>
+            )}
+
+            {roomDefects.length > 0 && (
+              <View style={styles.defectsInfo}>
+                <Chip
+                  mode="flat"
+                  style={[styles.defectChip, openDefects > 0 && styles.defectChipWarning]}
+                  textStyle={{ fontSize: 12 }}
+                >
+                  {roomDefects.length} Mängel {openDefects > 0 && `· ${openDefects} offen`}
+                </Chip>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -41,63 +111,24 @@ export default function ProjectDetailScreen() {
         </Card.Content>
       </Card>
 
-      <Card style={styles.menuCard}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Projekt-Bereiche
-          </Text>
+      <View style={styles.roomsSection}>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          Räume auswählen
+        </Text>
+        <Text variant="bodySmall" style={styles.sectionSubtitle}>
+          Tippen Sie auf einen Raum, um den Grundriss zu sehen und Mängel zu markieren
+        </Text>
+      </View>
 
-          <List.Item
-            title="Chat"
-            description="Projekt-Kommunikation"
-            left={(props) => <List.Icon {...props} icon="chat" />}
-            right={(props) => (
-              selectedProject.unreadMessages > 0 ? (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{selectedProject.unreadMessages}</Text>
-                </View>
-              ) : (
-                <List.Icon {...props} icon="chevron-right" />
-              )
-            )}
-            onPress={() => router.push('/project/chat')}
-            style={styles.listItem}
-          />
-
-          <Divider />
-
-          <List.Item
-            title="Mängel & Restarbeiten"
-            description={`${selectedProject.openDefects} offene Mängel`}
-            left={(props) => <List.Icon {...props} icon="alert-circle" color={selectedProject.openDefects > 0 ? Colors.warning : undefined} />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/defects')}
-            style={styles.listItem}
-          />
-
-          <Divider />
-
-          <List.Item
-            title="Aufmaß"
-            description="Messungen und Aufmaße"
-            left={(props) => <List.Icon {...props} icon="ruler" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/measurement')}
-            style={styles.listItem}
-          />
-
-          <Divider />
-
-          <List.Item
-            title="Dokumentation"
-            description="Pläne und Dokumente"
-            left={(props) => <List.Icon {...props} icon="file-document" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => router.push('/project/documentation')}
-            style={styles.listItem}
-          />
-        </Card.Content>
-      </Card>
+      {selectedProject.rooms && selectedProject.rooms.length > 0 ? (
+        selectedProject.rooms.map((room) => renderRoom(room))
+      ) : (
+        <Card style={styles.emptyCard}>
+          <Card.Content>
+            <Text style={styles.emptyText}>Keine Räume verfügbar</Text>
+          </Card.Content>
+        </Card>
+      )}
     </ScrollView>
   );
 }
@@ -124,31 +155,66 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontStyle: 'italic',
   },
-  menuCard: {
-    margin: Sizes.md,
-    marginTop: 0,
-    elevation: 2,
+  roomsSection: {
+    paddingHorizontal: Sizes.md,
+    paddingTop: Sizes.md,
+    paddingBottom: Sizes.sm,
   },
   sectionTitle: {
     fontWeight: 'bold',
     color: Colors.text,
-    marginBottom: Sizes.sm,
+    marginBottom: Sizes.xs,
   },
-  listItem: {
-    paddingHorizontal: 0,
+  sectionSubtitle: {
+    color: Colors.textSecondary,
   },
-  badge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: 'center',
+  roomCard: {
+    marginHorizontal: Sizes.md,
+    marginBottom: Sizes.md,
+    elevation: 2,
+  },
+  roomHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+  roomInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  roomIcon: {
+    marginRight: Sizes.md,
+  },
+  roomTitle: {
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  roomMeta: {
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  roomDescription: {
+    color: Colors.textSecondary,
+    marginTop: Sizes.sm,
+    lineHeight: 18,
+  },
+  defectsInfo: {
+    marginTop: Sizes.sm,
+  },
+  defectChip: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.surface,
+  },
+  defectChipWarning: {
+    backgroundColor: Colors.warning + '20',
+  },
+  emptyCard: {
+    margin: Sizes.md,
+    elevation: 1,
+  },
+  emptyText: {
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });

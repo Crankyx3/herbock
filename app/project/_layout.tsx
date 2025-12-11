@@ -50,6 +50,12 @@ export default function ProjectLayout() {
           title: 'Dokumentation',
         }}
       />
+      <Stack.Screen
+        name="room/index"
+        options={{
+          title: 'Raum-Grundriss',
+        }}
+      />
     </Stack>
   );
 }
