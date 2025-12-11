@@ -1,41 +1,22 @@
 import { Response } from 'express';
-import prisma from '../services/prisma';
+import db from '../services/db';
 import { AuthRequest } from '../middleware/auth';
 
 export const getAllProjects = async (req: AuthRequest, res: Response) => {
   try {
-    const projects = await prisma.project.findMany({
-      include: {
-        rooms: true,
-        _count: {
-          select: {
-            defects: true,
-            chatMessages: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const result = await db.query(`
+      SELECT
+        p.*,
+        COUNT(DISTINCT r.id) as room_count,
+        COUNT(DISTINCT d.id) FILTER (WHERE d.status = 'OPEN') as open_defects_count
+      FROM projects p
+      LEFT JOIN rooms r ON r."projectId" = p.id
+      LEFT JOIN defects d ON d."projectId" = p.id
+      GROUP BY p.id
+      ORDER BY p."createdAt" DESC
+    `);
 
-    // Transform to match mobile app structure
-    const transformedProjects = projects.map((project) => ({
-      id: project.id,
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      startDate: project.startDate,
-      endDate: project.endDate,
-      floorPlanUrl: project.floorPlanUrl,
-      openDefects: project.openDefects,
-      unreadMessages: project.unreadMessages,
-      rooms: project.rooms,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-    }));
-
-    res.json(transformedProjects);
+    res.json(result.rows);
   } catch (error) {
     console.error('Get projects error:', error);
     res.status(500).json({ error: 'Failed to fetch projects' });
@@ -46,44 +27,30 @@ export const getProjectById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        rooms: {
-          include: {
-            _count: {
-              select: {
-                defects: true,
-              },
-            },
-          },
-        },
-        defects: {
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-            assignedTo: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const projectResult = await db.query(
+      'SELECT * FROM projects WHERE id = $1',
+      [id]
+    );
 
-    if (!project) {
+    if (projectResult.rows.length === 0) {
       return res.status(404).json({ error: 'Project not found' });
     }
+
+    const roomsResult = await db.query(
+      'SELECT * FROM rooms WHERE "projectId" = $1 ORDER BY name',
+      [id]
+    );
+
+    const defectsResult = await db.query(
+      'SELECT * FROM defects WHERE "projectId" = $1 ORDER BY "createdAt" DESC',
+      [id]
+    );
+
+    const project = {
+      ...projectResult.rows[0],
+      rooms: roomsResult.rows,
+      defects: defectsResult.rows,
+    };
 
     res.json(project);
   } catch (error) {
@@ -96,21 +63,14 @@ export const createProject = async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, startDate, endDate, floorPlanUrl } = req.body;
 
-    const project = await prisma.project.create({
-      data: {
-        name,
-        description,
-        startDate: new Date(startDate),
-        endDate: endDate ? new Date(endDate) : null,
-        floorPlanUrl,
-        status: 'ACTIVE',
-      },
-      include: {
-        rooms: true,
-      },
-    });
+    const result = await db.query(
+      `INSERT INTO projects (id, name, description, status, "startDate", "endDate", "floorPlanUrl", "createdAt", "updatedAt")
+       VALUES (gen_random_uuid(), $1, $2, 'ACTIVE', $3, $4, $5, NOW(), NOW())
+       RETURNING *`,
+      [name, description, startDate, endDate, floorPlanUrl]
+    );
 
-    res.status(201).json(project);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Create project error:', error);
     res.status(500).json({ error: 'Failed to create project' });
@@ -122,22 +82,19 @@ export const updateProject = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { name, description, status, startDate, endDate, floorPlanUrl } = req.body;
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        status,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-        floorPlanUrl,
-      },
-      include: {
-        rooms: true,
-      },
-    });
+    const result = await db.query(
+      `UPDATE projects
+       SET name = $1, description = $2, status = $3, "startDate" = $4, "endDate" = $5, "floorPlanUrl" = $6, "updatedAt" = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [name, description, status, startDate, endDate, floorPlanUrl, id]
+    );
 
-    res.json(project);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update project error:', error);
     res.status(500).json({ error: 'Failed to update project' });
@@ -148,9 +105,11 @@ export const deleteProject = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    await prisma.project.delete({
-      where: { id },
-    });
+    const result = await db.query('DELETE FROM projects WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
 
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
