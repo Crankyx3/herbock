@@ -15,31 +15,31 @@ export default function ProjectLayout() {
       }}
     >
       <Stack.Screen
-        name="list"
+        name="list/index"
         options={{
           title: 'Meine Projekte',
         }}
       />
       <Stack.Screen
-        name="chat"
+        name="chat/index"
         options={{
           title: 'Projekt-Chat',
         }}
       />
       <Stack.Screen
-        name="defects"
+        name="defects/index"
         options={{
           title: 'Mängel & Restarbeiten',
         }}
       />
       <Stack.Screen
-        name="measurement"
+        name="measurement/index"
         options={{
           title: 'Aufmaß',
         }}
       />
       <Stack.Screen
-        name="documentation"
+        name="documentation/index"
         options={{
           title: 'Dokumentation',
         }}
