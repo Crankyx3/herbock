@@ -38,6 +38,17 @@ export interface Project {
   endDate?: Date;
   unreadMessages: number;
   openDefects: number;
+  floorPlanUrl?: string;
+  rooms?: Room[];
+}
+
+export interface Room {
+  id: string;
+  projectId: string;
+  name: string;
+  floor?: string;
+  area?: number;
+  description?: string;
 }
 
 export enum ProjectStatus {
@@ -84,15 +95,18 @@ export interface ChatMessage {
 export interface Defect {
   id: string;
   projectId: string;
+  roomId?: string;
   title: string;
   description: string;
   originalDescription?: string;
   originalLanguage?: Language;
   status: DefectStatus;
+  priority: DefectPriority;
   assignedTo?: string;
   createdBy: string;
-  location: DefectLocation;
+  location?: DefectLocation;
   images: string[];
+  audioUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,7 +115,13 @@ export interface DefectLocation {
   x: number;
   y: number;
   floor?: string;
-  room?: string;
+}
+
+export enum DefectPriority {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
 }
 
 export enum DefectStatus {
