@@ -9,14 +9,18 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ProjectDetailScreen() {
   const router = useRouter();
-  const { selectedProject, loadProjects } = useProjectStore();
-  const { defects } = useDefectsStore();
+  const { selectedProject, loadProjectById } = useProjectStore();
+  const { defects, loadDefects, loadRooms, rooms } = useDefectsStore();
 
   useEffect(() => {
-    if (!selectedProject) {
-      loadProjects();
+    if (selectedProject) {
+      // Load rooms and defects for the selected project
+      console.log('📦 Loading project details, rooms, and defects...');
+      loadProjectById(selectedProject.id);
+      loadRooms(selectedProject.id);
+      loadDefects(selectedProject.id);
     }
-  }, []);
+  }, [selectedProject?.id]);
 
   if (!selectedProject) {
     return (
@@ -103,11 +107,9 @@ export default function ProjectDetailScreen() {
           <Text variant="bodyMedium" style={styles.description}>
             {selectedProject.description}
           </Text>
-          {selectedProject.rooms && (
-            <Text variant="bodySmall" style={styles.meta}>
-              {selectedProject.rooms.length} Räume
-            </Text>
-          )}
+          <Text variant="bodySmall" style={styles.meta}>
+            {rooms.length} Räume
+          </Text>
         </Card.Content>
       </Card>
 
@@ -120,8 +122,8 @@ export default function ProjectDetailScreen() {
         </Text>
       </View>
 
-      {selectedProject.rooms && selectedProject.rooms.length > 0 ? (
-        selectedProject.rooms.map((room) => renderRoom(room))
+      {rooms.length > 0 ? (
+        rooms.map((room) => renderRoom(room))
       ) : (
         <Card style={styles.emptyCard}>
           <Card.Content>

@@ -5,6 +5,7 @@ export default function ProjectLayout() {
   return (
     <Stack
       screenOptions={{
+        headerShown: true,
         headerStyle: {
           backgroundColor: Colors.primary,
         },
@@ -12,6 +13,7 @@ export default function ProjectLayout() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerBackTitle: 'Zurück',
       }}
     >
       <Stack.Screen
