@@ -171,7 +171,7 @@ export const createDefect = async (req: AuthRequest, res: Response) => {
         location?.x,
         location?.y,
         location?.floor,
-        JSON.stringify(images || []),
+        images || [],
         audioUrl,
       ]
     );

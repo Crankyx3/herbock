@@ -220,12 +220,16 @@ export default function RoomFloorPlanScreen() {
                 originWhitelist={['*']}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
-                scrollEnabled={true}
+                scrollEnabled={!isPlacementMode}
                 mixedContentMode="always"
                 allowsInlineMediaPlayback={true}
                 mediaPlaybackRequiresUserAction={false}
                 automaticallyAdjustContentInsets={false}
-                bounces={false}
+                bounces={true}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                minimumZoomScale={1}
+                maximumZoomScale={5}
                 opacity={1}
               />
             </TouchableOpacity>
