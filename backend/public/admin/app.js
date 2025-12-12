@@ -64,8 +64,9 @@ async function loadStats() {
 }
 
 // ==================== Projects ====================
-let currentView = 'list'; // 'list' or 'detail'
+let currentView = 'list'; // 'list', 'detail', or 'room-detail'
 let currentProjectId = null;
+let currentRoomId = null;
 
 async function loadProjects() {
     try {
@@ -185,13 +186,13 @@ async function viewProjectDetail(projectId) {
                         <div class="row">
                             ${rooms.map(room => `
                                 <div class="col-md-4 mb-3">
-                                    <div class="card h-100 border-primary">
+                                    <div class="card h-100 border-primary" style="cursor: pointer;" onclick="viewRoomDetail('${project.id}', '${room.id}')">
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <h6 class="card-title mb-0">
                                                     <i class="bi bi-door-closed"></i> ${room.name}
                                                 </h6>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteRoomFromProject('${room.id}')">
+                                                <button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); deleteRoomFromProject('${room.id}')">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </div>
@@ -210,10 +211,18 @@ async function viewProjectDetail(projectId) {
                                                 </p>
                                             ` : ''}
                                             ${room.description ? `
-                                                <p class="card-text">
+                                                <p class="card-text mb-2">
                                                     <small>${room.description}</small>
                                                 </p>
                                             ` : ''}
+                                            <div class="mt-2">
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="bi bi-exclamation-triangle"></i> ${room.defect_count || 0} Mängel
+                                                </span>
+                                            </div>
+                                            <div class="text-end mt-2">
+                                                <small class="text-primary">Klicken für Details →</small>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -242,6 +251,7 @@ async function viewProjectDetail(projectId) {
 function backToProjectsList() {
     currentView = 'list';
     currentProjectId = null;
+    currentRoomId = null;
     loadProjects();
 }
 
@@ -256,6 +266,221 @@ async function deleteRoomFromProject(roomId) {
     await deleteRoom(roomId);
     if (currentProjectId) {
         viewProjectDetail(currentProjectId);
+    }
+}
+
+async function viewRoomDetail(projectId, roomId) {
+    try {
+        currentView = 'room-detail';
+        currentProjectId = projectId;
+        currentRoomId = roomId;
+
+        // Fetch room details
+        const roomResponse = await fetch(`${API_URL}/api/rooms/${roomId}`);
+        const room = await roomResponse.json();
+
+        // Fetch defects for this room
+        const defectsResponse = await fetch(`${API_URL}/api/projects/${projectId}/defects`);
+        const allDefects = await defectsResponse.json();
+        const roomDefects = allDefects.filter(d => d.roomId === roomId);
+
+        const html = `
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary" onclick="viewProjectDetail('${projectId}')">
+                    <i class="bi bi-arrow-left"></i> Zurück zum Projekt
+                </button>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item">
+                                <a href="#" onclick="backToProjectsList(); return false;">Projekte</a>
+                            </li>
+                            <li class="breadcrumb-item">
+                                <a href="#" onclick="viewProjectDetail('${projectId}'); return false;">${room.project?.name || 'Projekt'}</a>
+                            </li>
+                            <li class="breadcrumb-item active">${room.name}</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h4 class="card-title">
+                                <i class="bi bi-door-closed-fill"></i> ${room.name}
+                            </h4>
+                            ${room.description ? `<p class="card-text">${room.description}</p>` : ''}
+                            <div class="mb-2">
+                                ${room.floor ? `
+                                    <span class="badge bg-secondary">
+                                        <i class="bi bi-building"></i> ${room.floor}
+                                    </span>
+                                ` : ''}
+                                ${room.area ? `
+                                    <span class="badge bg-light text-dark">
+                                        <i class="bi bi-rulers"></i> ${room.area} m²
+                                    </span>
+                                ` : ''}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-exclamation-triangle"></i> ${roomDefects.length} Mängel
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-success" onclick="showCreateDefectModal('${projectId}', '${roomId}')">
+                                <i class="bi bi-plus-circle"></i> Neuer Mangel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Mängel (${roomDefects.length})</h5>
+                </div>
+                <div class="card-body">
+                    ${roomDefects.length > 0 ? `
+                        <div class="row">
+                            ${roomDefects.map(defect => `
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 ${getDefectCardClass(defect.status)}">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="card-title mb-0">
+                                                    <i class="bi bi-exclamation-circle"></i> ${defect.title || 'Mangel'}
+                                                </h6>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteDefect('${defect.id}')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            ${defect.description ? `
+                                                <p class="card-text mb-2">
+                                                    <small>${defect.description}</small>
+                                                </p>
+                                            ` : ''}
+                                            <div class="mb-2">
+                                                <span class="badge ${getStatusBadgeClass(defect.status)}">
+                                                    ${getStatusText(defect.status)}
+                                                </span>
+                                                <span class="badge ${getPriorityBadgeClass(defect.priority)}">
+                                                    ${getPriorityText(defect.priority)}
+                                                </span>
+                                            </div>
+                                            ${defect.images && defect.images.length > 0 ? `
+                                                <div class="mb-2">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-images"></i> ${defect.images.length} Bild(er)
+                                                    </small>
+                                                </div>
+                                            ` : ''}
+                                            <small class="text-muted">
+                                                Erstellt: ${formatDate(defect.createdAt)}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-exclamation-triangle" style="font-size: 48px;"></i>
+                            <p class="mt-3">Noch keine Mängel vorhanden</p>
+                            <button class="btn btn-primary" onclick="showCreateDefectModal('${projectId}', '${roomId}')">
+                                <i class="bi bi-plus-circle"></i> Ersten Mangel erstellen
+                            </button>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+
+        document.getElementById('projects-list').innerHTML = html;
+    } catch (error) {
+        console.error('Error loading room detail:', error);
+        showAlert('Fehler beim Laden der Raumdetails', 'danger');
+    }
+}
+
+// Helper functions for defect display
+function getDefectCardClass(status) {
+    switch(status) {
+        case 'OPEN': return 'border-danger';
+        case 'IN_PROGRESS': return 'border-warning';
+        case 'RESOLVED': return 'border-success';
+        default: return '';
+    }
+}
+
+function getStatusBadgeClass(status) {
+    switch(status) {
+        case 'OPEN': return 'bg-danger';
+        case 'IN_PROGRESS': return 'bg-warning text-dark';
+        case 'RESOLVED': return 'bg-success';
+        default: return 'bg-secondary';
+    }
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'OPEN': return 'Offen';
+        case 'IN_PROGRESS': return 'In Bearbeitung';
+        case 'RESOLVED': return 'Erledigt';
+        default: return status;
+    }
+}
+
+function getPriorityBadgeClass(priority) {
+    switch(priority) {
+        case 'HIGH': return 'bg-danger';
+        case 'MEDIUM': return 'bg-warning text-dark';
+        case 'LOW': return 'bg-info text-dark';
+        default: return 'bg-secondary';
+    }
+}
+
+function getPriorityText(priority) {
+    switch(priority) {
+        case 'HIGH': return 'Hoch';
+        case 'MEDIUM': return 'Mittel';
+        case 'LOW': return 'Niedrig';
+        default: return priority;
+    }
+}
+
+function showCreateDefectModal(projectId, roomId) {
+    showAlert('Mängel werden über die Mobile App erfasst', 'info');
+}
+
+async function deleteDefect(id) {
+    if (!confirm('Möchten Sie diesen Mangel wirklich löschen?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/defects/${id}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            throw new Error('Fehler beim Löschen');
+        }
+
+        showAlert('Mangel gelöscht', 'success');
+
+        // Refresh current view
+        if (currentView === 'room-detail' && currentProjectId && currentRoomId) {
+            viewRoomDetail(currentProjectId, currentRoomId);
+        }
+        loadStats();
+    } catch (error) {
+        console.error('Error deleting defect:', error);
+        showAlert('Fehler beim Löschen des Mangels', 'danger');
     }
 }
 

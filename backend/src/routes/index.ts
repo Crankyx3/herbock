@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as projectsController from '../controllers/projectsController';
 import * as roomsController from '../controllers/roomsController';
+import * as defectsController from '../controllers/defectsController';
 
 const router = Router();
 
@@ -23,8 +24,14 @@ router.post('/rooms', roomsController.createRoom);
 router.put('/rooms/:id', roomsController.updateRoom);
 router.delete('/rooms/:id', roomsController.deleteRoom);
 
+// ==================== Defect Routes ====================
+router.get('/projects/:projectId/defects', defectsController.getDefectsByProject);
+router.get('/defects/:id', defectsController.getDefectById);
+router.post('/defects', defectsController.createDefect);
+router.put('/defects/:id', defectsController.updateDefect);
+router.delete('/defects/:id', defectsController.deleteDefect);
+
 // TODO: Add authentication middleware back when auth is implemented
-// TODO: Add defects routes
 // TODO: Add auth routes
 
 export default router;

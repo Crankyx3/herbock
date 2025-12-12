@@ -1,64 +1,61 @@
 import { Response } from 'express';
-import prisma from '../services/prisma';
+import db from '../services/db';
 import { AuthRequest } from '../middleware/auth';
 
 export const getDefectsByProject = async (req: AuthRequest, res: Response) => {
   try {
     const { projectId } = req.params;
 
-    const defects = await prisma.defect.findMany({
-      where: { projectId },
-      include: {
-        room: true,
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const result = await db.query(
+      `SELECT
+        d.*,
+        r.name as room_name,
+        creator.id as creator_id,
+        creator."firstName" as creator_first_name,
+        creator."lastName" as creator_last_name,
+        creator.email as creator_email,
+        assigned.id as assigned_id,
+        assigned."firstName" as assigned_first_name,
+        assigned."lastName" as assigned_last_name,
+        assigned.email as assigned_email
+       FROM defects d
+       LEFT JOIN rooms r ON r.id = d."roomId"
+       LEFT JOIN users creator ON creator.id = d."createdById"
+       LEFT JOIN users assigned ON assigned.id = d."assignedToId"
+       WHERE d."projectId" = $1
+       ORDER BY d."createdAt" DESC`,
+      [projectId]
+    );
 
-    // Transform to match mobile app structure
-    const transformedDefects = defects.map((defect) => ({
-      id: defect.id,
-      projectId: defect.projectId,
-      roomId: defect.roomId,
-      title: defect.title,
-      description: defect.description,
-      originalDescription: defect.originalDescription,
-      originalLanguage: defect.originalLanguage,
-      status: defect.status,
-      priority: defect.priority,
-      assignedTo: defect.assignedTo?.id,
-      createdBy: defect.createdBy.id,
-      location: defect.locationX && defect.locationY
+    const defects = result.rows.map((row) => ({
+      id: row.id,
+      projectId: row.projectId,
+      roomId: row.roomId,
+      title: row.title,
+      description: row.description,
+      originalDescription: row.originalDescription,
+      originalLanguage: row.originalLanguage,
+      status: row.status,
+      priority: row.priority,
+      assignedTo: row.assigned_id,
+      createdBy: row.creator_id,
+      location: row.locationX && row.locationY
         ? {
-            x: defect.locationX,
-            y: defect.locationY,
-            floor: defect.locationFloor,
+            x: row.locationX,
+            y: row.locationY,
+            floor: row.locationFloor,
           }
         : undefined,
-      images: defect.images,
-      audioUrl: defect.audioUrl,
-      createdAt: defect.createdAt,
-      updatedAt: defect.updatedAt,
+      images: row.images,
+      audioUrl: row.audioUrl,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      room: {
+        name: row.room_name,
+      },
     }));
 
-    res.json(transformedDefects);
+    res.json(defects);
   } catch (error) {
     console.error('Get defects error:', error);
     res.status(500).json({ error: 'Failed to fetch defects' });
@@ -69,33 +66,50 @@ export const getDefectById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const defect = await prisma.defect.findUnique({
-      where: { id },
-      include: {
-        project: true,
-        room: true,
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+    const result = await db.query(
+      `SELECT
+        d.*,
+        p.name as project_name,
+        r.name as room_name,
+        creator.id as creator_id,
+        creator."firstName" as creator_first_name,
+        creator."lastName" as creator_last_name,
+        creator.email as creator_email,
+        assigned.id as assigned_id,
+        assigned."firstName" as assigned_first_name,
+        assigned."lastName" as assigned_last_name,
+        assigned.email as assigned_email
+       FROM defects d
+       LEFT JOIN projects p ON p.id = d."projectId"
+       LEFT JOIN rooms r ON r.id = d."roomId"
+       LEFT JOIN users creator ON creator.id = d."createdById"
+       LEFT JOIN users assigned ON assigned.id = d."assignedToId"
+       WHERE d.id = $1`,
+      [id]
+    );
 
-    if (!defect) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Defect not found' });
     }
+
+    const row = result.rows[0];
+    const defect = {
+      ...row,
+      project: { name: row.project_name },
+      room: { name: row.room_name },
+      createdBy: row.creator_id ? {
+        id: row.creator_id,
+        firstName: row.creator_first_name,
+        lastName: row.creator_last_name,
+        email: row.creator_email,
+      } : null,
+      assignedTo: row.assigned_id ? {
+        id: row.assigned_id,
+        firstName: row.assigned_first_name,
+        lastName: row.assigned_last_name,
+        email: row.assigned_email,
+      } : null,
+    };
 
     res.json(defect);
   } catch (error) {
@@ -120,57 +134,49 @@ export const createDefect = async (req: AuthRequest, res: Response) => {
       audioUrl,
     } = req.body;
 
-    // Create defect
-    const defect = await prisma.defect.create({
-      data: {
+    const result = await db.query(
+      `INSERT INTO defects (
+        id,
+        "projectId",
+        "roomId",
+        title,
+        description,
+        "originalDescription",
+        "originalLanguage",
+        priority,
+        status,
+        "createdById",
+        "assignedToId",
+        "locationX",
+        "locationY",
+        "locationFloor",
+        images,
+        "audioUrl",
+        "createdAt",
+        "updatedAt"
+      ) VALUES (
+        gen_random_uuid(),
+        $1, $2, $3, $4, $5, $6, $7, 'OPEN', $8, $9, $10, $11, $12, $13, $14, NOW(), NOW()
+      ) RETURNING *`,
+      [
         projectId,
         roomId,
         title,
         description,
         originalDescription,
         originalLanguage,
-        priority: priority || 'MEDIUM',
-        status: 'OPEN',
-        createdById: req.userId!,
+        priority || 'MEDIUM',
+        req.userId!,
         assignedToId,
-        locationX: location?.x,
-        locationY: location?.y,
-        locationFloor: location?.floor,
-        images: images || [],
+        location?.x,
+        location?.y,
+        location?.floor,
+        JSON.stringify(images || []),
         audioUrl,
-      },
-      include: {
-        room: true,
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+      ]
+    );
 
-    // Update project's open defects count
-    await prisma.project.update({
-      where: { id: projectId },
-      data: {
-        openDefects: {
-          increment: 1,
-        },
-      },
-    });
-
-    res.status(201).json(defect);
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Create defect error:', error);
     res.status(500).json({ error: 'Failed to create defect' });
@@ -191,80 +197,42 @@ export const updateDefect = async (req: AuthRequest, res: Response) => {
       audioUrl,
     } = req.body;
 
-    // Get old defect to check status change
-    const oldDefect = await prisma.defect.findUnique({
-      where: { id },
-    });
-
-    if (!oldDefect) {
-      return res.status(404).json({ error: 'Defect not found' });
-    }
-
-    // Update defect
-    const defect = await prisma.defect.update({
-      where: { id },
-      data: {
+    const result = await db.query(
+      `UPDATE defects
+       SET
+         title = $1,
+         description = $2,
+         status = $3,
+         priority = $4,
+         "assignedToId" = $5,
+         "locationX" = $6,
+         "locationY" = $7,
+         "locationFloor" = $8,
+         images = $9,
+         "audioUrl" = $10,
+         "updatedAt" = NOW()
+       WHERE id = $11
+       RETURNING *`,
+      [
         title,
         description,
         status,
         priority,
         assignedToId,
-        locationX: location?.x,
-        locationY: location?.y,
-        locationFloor: location?.floor,
-        images,
+        location?.x,
+        location?.y,
+        location?.floor,
+        images ? JSON.stringify(images) : null,
         audioUrl,
-      },
-      include: {
-        room: true,
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        assignedTo: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+        id,
+      ]
+    );
 
-    // Update project's open defects count if status changed
-    if (status && oldDefect.status !== status) {
-      const wasOpen = oldDefect.status === 'OPEN';
-      const isNowOpen = status === 'OPEN';
-
-      if (wasOpen && !isNowOpen) {
-        // Defect was closed
-        await prisma.project.update({
-          where: { id: oldDefect.projectId },
-          data: {
-            openDefects: {
-              decrement: 1,
-            },
-          },
-        });
-      } else if (!wasOpen && isNowOpen) {
-        // Defect was reopened
-        await prisma.project.update({
-          where: { id: oldDefect.projectId },
-          data: {
-            openDefects: {
-              increment: 1,
-            },
-          },
-        });
-      }
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Defect not found' });
     }
 
-    res.json(defect);
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Update defect error:', error);
     res.status(500).json({ error: 'Failed to update defect' });
@@ -275,28 +243,10 @@ export const deleteDefect = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const defect = await prisma.defect.findUnique({
-      where: { id },
-    });
+    const result = await db.query('DELETE FROM defects WHERE id = $1 RETURNING *', [id]);
 
-    if (!defect) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Defect not found' });
-    }
-
-    await prisma.defect.delete({
-      where: { id },
-    });
-
-    // Update project's open defects count if it was open
-    if (defect.status === 'OPEN') {
-      await prisma.project.update({
-        where: { id: defect.projectId },
-        data: {
-          openDefects: {
-            decrement: 1,
-          },
-        },
-      });
     }
 
     res.json({ message: 'Defect deleted successfully' });
