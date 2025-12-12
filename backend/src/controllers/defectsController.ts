@@ -166,7 +166,7 @@ export const createDefect = async (req: AuthRequest, res: Response) => {
         originalDescription,
         originalLanguage,
         priority || 'MEDIUM',
-        req.userId!,
+        req.userId || 'employee-user-id-001', // Fallback to default employee user
         assignedToId,
         location?.x,
         location?.y,
