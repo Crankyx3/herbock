@@ -83,18 +83,67 @@ export const api = {
 
   getProjectById: (id: string) => apiCall(API_ENDPOINTS.projectById(id)),
 
+  createProject: (projectData: any) =>
+    apiCall(API_ENDPOINTS.projects, {
+      method: 'POST',
+      body: JSON.stringify(projectData),
+    }),
+
+  updateProject: (id: string, projectData: any) =>
+    apiCall(API_ENDPOINTS.projectById(id), {
+      method: 'PUT',
+      body: JSON.stringify(projectData),
+    }),
+
+  deleteProject: (id: string) =>
+    apiCall(API_ENDPOINTS.projectById(id), {
+      method: 'DELETE',
+    }),
+
   // Rooms
   getRoomsByProject: (projectId: string) =>
     apiCall(API_ENDPOINTS.roomsByProject(projectId)),
+
+  getRoomById: (id: string) => apiCall(API_ENDPOINTS.roomById(id)),
+
+  createRoom: (roomData: any) =>
+    apiCall(`${API_BASE_URL}/api/rooms`, {
+      method: 'POST',
+      body: JSON.stringify(roomData),
+    }),
+
+  updateRoom: (id: string, roomData: any) =>
+    apiCall(API_ENDPOINTS.roomById(id), {
+      method: 'PUT',
+      body: JSON.stringify(roomData),
+    }),
+
+  deleteRoom: (id: string) =>
+    apiCall(API_ENDPOINTS.roomById(id), {
+      method: 'DELETE',
+    }),
 
   // Defects
   getDefectsByProject: (projectId: string) =>
     apiCall(API_ENDPOINTS.defectsByProject(projectId)),
 
+  getDefectById: (id: string) => apiCall(API_ENDPOINTS.defectById(id)),
+
   createDefect: (defectData: any) =>
     apiCall(API_ENDPOINTS.defects, {
       method: 'POST',
       body: JSON.stringify(defectData),
+    }),
+
+  updateDefect: (id: string, defectData: any) =>
+    apiCall(API_ENDPOINTS.defectById(id), {
+      method: 'PUT',
+      body: JSON.stringify(defectData),
+    }),
+
+  deleteDefect: (id: string) =>
+    apiCall(API_ENDPOINTS.defectById(id), {
+      method: 'DELETE',
     }),
 };
 
