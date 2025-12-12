@@ -64,6 +64,9 @@ async function loadStats() {
 }
 
 // ==================== Projects ====================
+let currentView = 'list'; // 'list' or 'detail'
+let currentProjectId = null;
+
 async function loadProjects() {
     try {
         const response = await fetch(`${API_URL}/api/projects`);
@@ -84,16 +87,7 @@ async function loadProjects() {
             return;
         }
 
-        // Load rooms for each project
-        const projectsWithRooms = await Promise.all(
-            projects.map(async (project) => {
-                const roomsResponse = await fetch(`${API_URL}/api/projects/${project.id}/rooms`);
-                const rooms = await roomsResponse.json();
-                return { ...project, rooms };
-            })
-        );
-
-        const html = projectsWithRooms.map(project => `
+        const html = projects.map(project => `
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="row">
@@ -105,7 +99,7 @@ async function loadProjects() {
                             <div class="mb-2">
                                 <span class="badge bg-primary">${project.status}</span>
                                 <span class="badge bg-info text-dark">
-                                    <i class="bi bi-door-open"></i> ${project.rooms.length} Räume
+                                    <i class="bi bi-door-open"></i> ${project.room_count || 0} Räume
                                 </span>
                                 <span class="badge bg-warning text-dark">
                                     <i class="bi bi-exclamation-triangle"></i> ${project.open_defects_count || 0} Mängel
@@ -117,53 +111,14 @@ async function loadProjects() {
                             </small>
                         </div>
                         <div class="col-md-4 text-end">
-                            <button class="btn btn-sm btn-outline-success" onclick="addRoomToProject('${project.id}')">
-                                <i class="bi bi-plus-circle"></i> Raum
+                            <button class="btn btn-sm btn-primary" onclick="viewProjectDetail('${project.id}')">
+                                <i class="bi bi-box-arrow-in-right"></i> Öffnen
                             </button>
                             <button class="btn btn-sm btn-outline-danger" onclick="deleteProject('${project.id}')">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </div>
-
-                    <!-- Räume Liste -->
-                    ${project.rooms.length > 0 ? `
-                        <hr>
-                        <div class="mt-3">
-                            <h6 class="text-muted mb-3">
-                                <i class="bi bi-door-open"></i> Räume (${project.rooms.length})
-                            </h6>
-                            <div class="row">
-                                ${project.rooms.map(room => `
-                                    <div class="col-md-6 mb-2">
-                                        <div class="card bg-light">
-                                            <div class="card-body p-3">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <strong><i class="bi bi-door-closed"></i> ${room.name}</strong>
-                                                        ${room.floor ? `<br><small class="text-muted">${room.floor}</small>` : ''}
-                                                        ${room.area ? `<br><small class="text-muted">${room.area} m²</small>` : ''}
-                                                    </div>
-                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoom('${room.id}')">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : `
-                        <hr>
-                        <div class="text-center text-muted py-3">
-                            <i class="bi bi-door-open"></i> Noch keine Räume vorhanden
-                            <br>
-                            <button class="btn btn-sm btn-primary mt-2" onclick="addRoomToProject('${project.id}')">
-                                <i class="bi bi-plus-circle"></i> Ersten Raum erstellen
-                            </button>
-                        </div>
-                    `}
                 </div>
             </div>
         `).join('');
@@ -175,12 +130,133 @@ async function loadProjects() {
     }
 }
 
+async function viewProjectDetail(projectId) {
+    try {
+        currentView = 'detail';
+        currentProjectId = projectId;
+
+        const response = await fetch(`${API_URL}/api/projects/${projectId}`);
+        const project = await response.json();
+
+        const roomsResponse = await fetch(`${API_URL}/api/projects/${projectId}/rooms`);
+        const rooms = await roomsResponse.json();
+
+        const html = `
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary" onclick="backToProjectsList()">
+                    <i class="bi bi-arrow-left"></i> Zurück zu Projekten
+                </button>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h4 class="card-title">
+                                <i class="bi bi-folder-fill"></i> ${project.name}
+                            </h4>
+                            <p class="card-text">${project.description || 'Keine Beschreibung'}</p>
+                            <div class="mb-2">
+                                <span class="badge bg-primary">${project.status}</span>
+                                <span class="badge bg-info text-dark">
+                                    <i class="bi bi-door-open"></i> ${rooms.length} Räume
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                Start: ${formatDate(project.startDate)}
+                                ${project.endDate ? ' | Ende: ' + formatDate(project.endDate) : ''}
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-success" onclick="addRoomToProject('${project.id}')">
+                                <i class="bi bi-plus-circle"></i> Neuer Raum
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-door-open"></i> Räume (${rooms.length})</h5>
+                </div>
+                <div class="card-body">
+                    ${rooms.length > 0 ? `
+                        <div class="row">
+                            ${rooms.map(room => `
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100 border-primary">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h6 class="card-title mb-0">
+                                                    <i class="bi bi-door-closed"></i> ${room.name}
+                                                </h6>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteRoomFromProject('${room.id}')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            ${room.floor ? `
+                                                <p class="card-text mb-1">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-building"></i> ${room.floor}
+                                                    </small>
+                                                </p>
+                                            ` : ''}
+                                            ${room.area ? `
+                                                <p class="card-text mb-1">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-rulers"></i> ${room.area} m²
+                                                    </small>
+                                                </p>
+                                            ` : ''}
+                                            ${room.description ? `
+                                                <p class="card-text">
+                                                    <small>${room.description}</small>
+                                                </p>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-door-open" style="font-size: 48px;"></i>
+                            <p class="mt-3">Noch keine Räume vorhanden</p>
+                            <button class="btn btn-primary" onclick="addRoomToProject('${project.id}')">
+                                <i class="bi bi-plus-circle"></i> Ersten Raum erstellen
+                            </button>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+
+        document.getElementById('projects-list').innerHTML = html;
+    } catch (error) {
+        console.error('Error loading project detail:', error);
+        showAlert('Fehler beim Laden der Projektdetails', 'danger');
+    }
+}
+
+function backToProjectsList() {
+    currentView = 'list';
+    currentProjectId = null;
+    loadProjects();
+}
+
 async function addRoomToProject(projectId) {
-    // Set project in dropdown
     const modal = new bootstrap.Modal(document.getElementById('roomModal'));
     document.getElementById('roomForm').reset();
     document.getElementById('room-projectId').value = projectId;
     modal.show();
+}
+
+async function deleteRoomFromProject(roomId) {
+    await deleteRoom(roomId);
+    if (currentProjectId) {
+        viewProjectDetail(currentProjectId);
+    }
 }
 
 async function loadProjectsForDropdown() {
@@ -396,7 +472,13 @@ async function saveRoom() {
 
         showAlert('Raum erfolgreich erstellt!', 'success');
         bootstrap.Modal.getInstance(document.getElementById('roomModal')).hide();
-        loadProjects();
+
+        // Refresh current view
+        if (currentView === 'detail' && currentProjectId) {
+            viewProjectDetail(currentProjectId);
+        } else {
+            loadProjects();
+        }
         loadStats();
     } catch (error) {
         console.error('Error saving room:', error);
