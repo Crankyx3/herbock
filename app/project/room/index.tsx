@@ -39,7 +39,10 @@ export default function RoomFloorPlanScreen() {
   }, [selectedProject?.id]);
 
   const room = rooms.find((r) => r.id === id);
-  const roomDefects = defects.filter((d) => d.roomId === id);
+  // Filter and sort defects by creation date (oldest first) for stable indices
+  const roomDefects = defects
+    .filter((d) => d.roomId === id)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   // Debug logging for defects
   useEffect(() => {
@@ -374,7 +377,7 @@ export default function RoomFloorPlanScreen() {
       <FAB
         icon="format-list-bulleted"
         style={[styles.fab, styles.fabList]}
-        onPress={() => router.push('/project/defects')}
+        onPress={() => router.push(`/project/defects?roomId=${id}`)}
         visible={!isPlacementMode}
       />
 

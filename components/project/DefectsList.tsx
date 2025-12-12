@@ -7,19 +7,26 @@ import { Defect, DefectStatus, DefectPriority, Room } from '../../types';
 import { Colors, Sizes } from '../../constants';
 import { useRouter } from 'expo-router';
 
-export const DefectsList = () => {
+interface DefectsListProps {
+  roomId?: string;
+}
+
+export const DefectsList = ({ roomId }: DefectsListProps) => {
   const { defects, rooms, loadDefects } = useDefectsStore();
   const { selectedProject } = useProjectStore();
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
 
   useEffect(() => {
-    loadDefects();
-  }, []);
+    if (selectedProject) {
+      loadDefects(selectedProject.id);
+    }
+  }, [selectedProject]);
 
   const filteredDefects = defects.filter(
     (defect) =>
       defect.projectId === selectedProject?.id &&
+      (!roomId || defect.roomId === roomId) &&
       (defect.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         defect.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   );

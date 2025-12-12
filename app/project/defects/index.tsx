@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
+import { useLocalSearchParams } from 'expo-router';
 import { DefectsList } from '../../../components/project/DefectsList';
 import { ManualDefectEntry } from '../../../components/project/ManualDefectEntry';
 import { useDefectsStore } from '../../../store/defectsStore';
@@ -11,6 +12,7 @@ type TabValue = 'list' | 'add';
 
 export default function DefectsScreen() {
   const [activeTab, setActiveTab] = useState<TabValue>('list');
+  const { roomId } = useLocalSearchParams<{ roomId?: string }>();
   const { loadDefects, loadRooms } = useDefectsStore();
   const { selectedProject } = useProjectStore();
 
@@ -24,11 +26,11 @@ export default function DefectsScreen() {
   const renderContent = () => {
     switch (activeTab) {
       case 'list':
-        return <DefectsList />;
+        return <DefectsList roomId={roomId} />;
       case 'add':
         return <ManualDefectEntry />;
       default:
-        return <DefectsList />;
+        return <DefectsList roomId={roomId} />;
     }
   };
 
