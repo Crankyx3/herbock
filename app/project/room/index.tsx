@@ -18,6 +18,7 @@ export default function RoomFloorPlanScreen() {
   const { defects, addDefect, rooms, loadRooms } = useDefectsStore();
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
   const [pdfLoading, setPdfLoading] = useState(true);
+  const [isPlacementMode, setIsPlacementMode] = useState(false);
 
   // Form state
   const [showDefectForm, setShowDefectForm] = useState(false);
@@ -56,6 +57,11 @@ export default function RoomFloorPlanScreen() {
   }
 
   const handleFloorPlanPress = (event: any) => {
+    // Only allow defect placement in placement mode
+    if (!isPlacementMode) {
+      return;
+    }
+
     const { locationX, locationY } = event.nativeEvent;
 
     // Calculate relative position (0-1 range)
@@ -68,6 +74,7 @@ export default function RoomFloorPlanScreen() {
     setDefectDescription('');
     setDefectPriority(DefectPriority.MEDIUM);
     setShowDefectForm(true);
+    setIsPlacementMode(false); // Exit placement mode after placing
   };
 
   const handleSaveDefect = () => {
@@ -154,19 +161,32 @@ export default function RoomFloorPlanScreen() {
         </Card.Content>
       </Card>
 
-      <View style={styles.instructionCard}>
-        <Text variant="bodySmall" style={styles.instructionText}>
-          💡 Tippen Sie auf den Grundriss, um einen Mangel zu markieren
-        </Text>
-      </View>
+      {isPlacementMode && (
+        <View style={styles.placementModeCard}>
+          <Text variant="bodySmall" style={styles.placementModeText}>
+            📍 Tippen Sie auf den Grundriss, um einen Mangel zu platzieren
+          </Text>
+          <Button
+            mode="outlined"
+            onPress={() => setIsPlacementMode(false)}
+            style={styles.cancelButton}
+            textColor={Colors.error}
+          >
+            Abbrechen
+          </Button>
+        </View>
+      )}
 
       <View style={styles.floorPlanContainer}>
         {room.floorPlanUrl ? (
           <>
             <TouchableOpacity
-              activeOpacity={0.9}
+              activeOpacity={isPlacementMode ? 0.9 : 1}
               onPress={handleFloorPlanPress}
-              style={styles.floorPlanTouch}
+              style={[
+                styles.floorPlanTouch,
+                isPlacementMode && styles.floorPlanTouchActive
+              ]}
               onLayout={(event) => {
                 const { x, y, width, height } = event.nativeEvent.layout;
                 setImageLayout({ x, y, width, height });
@@ -253,10 +273,18 @@ export default function RoomFloorPlanScreen() {
       </View>
 
       <FAB
+        icon="plus"
+        style={[styles.fab, styles.fabAdd]}
+        label="Mangel setzen"
+        onPress={() => setIsPlacementMode(true)}
+        visible={!isPlacementMode}
+      />
+
+      <FAB
         icon="format-list-bulleted"
-        style={styles.fab}
-        label="Alle Mängel"
+        style={[styles.fab, styles.fabList]}
         onPress={() => router.push('/project/defects')}
+        visible={!isPlacementMode}
       />
 
       {/* Defect Form Modal */}
@@ -385,6 +413,24 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: 'center',
   },
+  placementModeCard: {
+    backgroundColor: Colors.error + '15',
+    padding: Sizes.md,
+    marginHorizontal: Sizes.md,
+    marginBottom: Sizes.md,
+    borderRadius: Sizes.borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  placementModeText: {
+    color: Colors.error,
+    flex: 1,
+    marginRight: Sizes.sm,
+  },
+  cancelButton: {
+    borderColor: Colors.error,
+  },
   floorPlanContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -397,6 +443,11 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  floorPlanTouchActive: {
+    borderWidth: 3,
+    borderColor: Colors.error,
+    borderStyle: 'dashed',
   },
   webview: {
     flex: 1,
@@ -499,8 +550,13 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: Sizes.md,
-    bottom: Sizes.md,
     backgroundColor: Colors.primary,
+  },
+  fabAdd: {
+    bottom: Sizes.md + 60,
+  },
+  fabList: {
+    bottom: Sizes.md,
   },
   modalOverlay: {
     flex: 1,
