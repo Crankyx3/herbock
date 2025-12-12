@@ -145,10 +145,10 @@
             // Ensure scale is valid and reasonable
             if (!scale || scale <= 0 || !isFinite(scale)) {
                 scale = 1.5; // Default scale for mobile
-            } else if (scale > 2.0) {
-                scale = 2.0; // Max scale
-            } else if (scale < 0.5) {
-                scale = 0.5; // Min scale
+            } else if (scale > 3.0) {
+                scale = 3.0; // Max scale for quality
+            } else if (scale < 0.2) {
+                scale = 0.2; // Min scale to avoid tiny rendering
             }
 
             const scaledViewport = page.getViewport({ scale });
@@ -173,12 +173,14 @@
             canvas.width = scaledViewport.width;
 
             // Make canvas visible with explicit styling
+            // Set canvas resolution (actual pixels)
             canvas.style.backgroundColor = 'white';
             canvas.style.display = 'block';
             canvas.style.margin = '10px auto';
-            canvas.style.maxWidth = '95%';
-            canvas.style.width = scaledViewport.width + 'px';
-            canvas.style.height = scaledViewport.height + 'px';
+            // Use CSS to scale down to fit screen width
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.maxWidth = '100%';
 
             // Append to container
             document.getElementById('pdf-container').appendChild(canvas);
