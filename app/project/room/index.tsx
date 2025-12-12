@@ -197,25 +197,17 @@ export default function RoomFloorPlanScreen() {
                   console.error('HTTP error:', event.nativeEvent);
                   Alert.alert('HTTP Fehler', `Status: ${event.nativeEvent.statusCode}`);
                 }}
-                scrollEnabled={true}
-                scalesPageToFit={true}
-                startInLoadingState={true}
+                originWhitelist={['*']}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
+                scrollEnabled={true}
                 mixedContentMode="always"
-                renderLoading={() => (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={Colors.primary} />
-                    <Text style={styles.loadingText}>Grundriss wird geladen...</Text>
-                  </View>
-                )}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                automaticallyAdjustContentInsets={false}
+                bounces={false}
+                opacity={1}
               />
-              {pdfLoading && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="large" color={Colors.primary} />
-                  <Text style={styles.loadingText}>Grundriss wird geladen...</Text>
-                </View>
-              )}
             </TouchableOpacity>
 
             {/* Render defect markers */}
