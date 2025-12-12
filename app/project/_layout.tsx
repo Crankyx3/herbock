@@ -1,7 +1,11 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants';
 
 export default function ProjectLayout() {
+  const router = useRouter();
+
   return (
     <Stack
       screenOptions={{
@@ -20,6 +24,14 @@ export default function ProjectLayout() {
         name="list/index"
         options={{
           title: 'Meine Projekte',
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{ marginLeft: 10 }}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <Stack.Screen
