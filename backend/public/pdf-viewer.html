@@ -134,18 +134,36 @@
         async function renderPage(pdf, pageNum) {
             const page = await pdf.getPage(pageNum);
 
-            // Calculate scale based on viewport width
+            // Get viewport at scale 1
             const viewport = page.getViewport({ scale: 1 });
-            const scale = Math.min(window.innerWidth * 0.95 / viewport.width, 2.0);
+
+            // Calculate scale based on available width
+            // Use fallback if window.innerWidth is 0 (can happen in WebView)
+            const availableWidth = window.innerWidth || screen.width || 375; // Fallback to typical mobile width
+            let scale = (availableWidth * 0.95) / viewport.width;
+
+            // Ensure scale is valid and reasonable
+            if (!scale || scale <= 0 || !isFinite(scale)) {
+                scale = 1.5; // Default scale for mobile
+            } else if (scale > 2.0) {
+                scale = 2.0; // Max scale
+            } else if (scale < 0.5) {
+                scale = 0.5; // Min scale
+            }
+
             const scaledViewport = page.getViewport({ scale });
 
             sendMessage({
                 type: 'debug',
                 message: 'Rendering page',
                 pageNum,
-                width: scaledViewport.width,
-                height: scaledViewport.height,
-                scale
+                windowWidth: window.innerWidth,
+                screenWidth: screen.width,
+                availableWidth,
+                viewportWidth: viewport.width,
+                calculatedScale: scale,
+                finalWidth: scaledViewport.width,
+                finalHeight: scaledViewport.height
             });
 
             // Create canvas
@@ -159,6 +177,8 @@
             canvas.style.display = 'block';
             canvas.style.margin = '10px auto';
             canvas.style.maxWidth = '95%';
+            canvas.style.width = scaledViewport.width + 'px';
+            canvas.style.height = scaledViewport.height + 'px';
 
             // Append to container
             document.getElementById('pdf-container').appendChild(canvas);
