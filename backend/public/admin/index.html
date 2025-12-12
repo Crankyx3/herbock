@@ -58,12 +58,6 @@
                     <a class="nav-link" href="#" onclick="showSection('projects')">
                         <i class="bi bi-folder"></i> Projekte
                     </a>
-                    <a class="nav-link" href="#" onclick="showSection('rooms')">
-                        <i class="bi bi-door-open"></i> Räume
-                    </a>
-                    <a class="nav-link" href="#" onclick="showSection('defects')">
-                        <i class="bi bi-exclamation-triangle"></i> Mängel
-                    </a>
                     <a class="nav-link" href="#" onclick="showSection('users')">
                         <i class="bi bi-people"></i> Benutzer
                     </a>
@@ -120,28 +114,6 @@
                         </button>
                     </div>
                     <div id="projects-list"></div>
-                </div>
-
-                <!-- Rooms Section -->
-                <div id="rooms-section" class="section" style="display:none;">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2>Räume</h2>
-                        <button class="btn btn-primary" onclick="showRoomModal()">
-                            <i class="bi bi-plus-circle"></i> Neuer Raum
-                        </button>
-                    </div>
-                    <div class="mb-3">
-                        <select class="form-select" id="room-project-filter" onchange="loadRooms()">
-                            <option value="">Alle Projekte</option>
-                        </select>
-                    </div>
-                    <div id="rooms-list"></div>
-                </div>
-
-                <!-- Defects Section -->
-                <div id="defects-section" class="section" style="display:none;">
-                    <h2 class="mb-4">Mängel</h2>
-                    <div id="defects-list"></div>
                 </div>
 
                 <!-- Users Section -->
