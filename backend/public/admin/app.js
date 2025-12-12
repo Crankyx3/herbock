@@ -84,7 +84,16 @@ async function loadProjects() {
             return;
         }
 
-        const html = projects.map(project => `
+        // Load rooms for each project
+        const projectsWithRooms = await Promise.all(
+            projects.map(async (project) => {
+                const roomsResponse = await fetch(`${API_URL}/api/projects/${project.id}/rooms`);
+                const rooms = await roomsResponse.json();
+                return { ...project, rooms };
+            })
+        );
+
+        const html = projectsWithRooms.map(project => `
             <div class="card mb-3">
                 <div class="card-body">
                     <div class="row">
@@ -96,7 +105,7 @@ async function loadProjects() {
                             <div class="mb-2">
                                 <span class="badge bg-primary">${project.status}</span>
                                 <span class="badge bg-info text-dark">
-                                    <i class="bi bi-door-open"></i> ${project.room_count || 0} Räume
+                                    <i class="bi bi-door-open"></i> ${project.rooms.length} Räume
                                 </span>
                                 <span class="badge bg-warning text-dark">
                                     <i class="bi bi-exclamation-triangle"></i> ${project.open_defects_count || 0} Mängel
@@ -108,14 +117,53 @@ async function loadProjects() {
                             </small>
                         </div>
                         <div class="col-md-4 text-end">
-                            <button class="btn btn-sm btn-outline-primary" onclick="viewProject('${project.id}')">
-                                <i class="bi bi-eye"></i> Ansehen
+                            <button class="btn btn-sm btn-outline-success" onclick="addRoomToProject('${project.id}')">
+                                <i class="bi bi-plus-circle"></i> Raum
                             </button>
                             <button class="btn btn-sm btn-outline-danger" onclick="deleteProject('${project.id}')">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </div>
+
+                    <!-- Räume Liste -->
+                    ${project.rooms.length > 0 ? `
+                        <hr>
+                        <div class="mt-3">
+                            <h6 class="text-muted mb-3">
+                                <i class="bi bi-door-open"></i> Räume (${project.rooms.length})
+                            </h6>
+                            <div class="row">
+                                ${project.rooms.map(room => `
+                                    <div class="col-md-6 mb-2">
+                                        <div class="card bg-light">
+                                            <div class="card-body p-3">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div>
+                                                        <strong><i class="bi bi-door-closed"></i> ${room.name}</strong>
+                                                        ${room.floor ? `<br><small class="text-muted">${room.floor}</small>` : ''}
+                                                        ${room.area ? `<br><small class="text-muted">${room.area} m²</small>` : ''}
+                                                    </div>
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteRoom('${room.id}')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : `
+                        <hr>
+                        <div class="text-center text-muted py-3">
+                            <i class="bi bi-door-open"></i> Noch keine Räume vorhanden
+                            <br>
+                            <button class="btn btn-sm btn-primary mt-2" onclick="addRoomToProject('${project.id}')">
+                                <i class="bi bi-plus-circle"></i> Ersten Raum erstellen
+                            </button>
+                        </div>
+                    `}
                 </div>
             </div>
         `).join('');
@@ -125,6 +173,14 @@ async function loadProjects() {
         console.error('Error loading projects:', error);
         showAlert('Fehler beim Laden der Projekte', 'danger');
     }
+}
+
+async function addRoomToProject(projectId) {
+    // Set project in dropdown
+    const modal = new bootstrap.Modal(document.getElementById('roomModal'));
+    document.getElementById('roomForm').reset();
+    document.getElementById('room-projectId').value = projectId;
+    modal.show();
 }
 
 async function loadProjectsForDropdown() {
@@ -340,7 +396,7 @@ async function saveRoom() {
 
         showAlert('Raum erfolgreich erstellt!', 'success');
         bootstrap.Modal.getInstance(document.getElementById('roomModal')).hide();
-        loadRooms();
+        loadProjects();
         loadStats();
     } catch (error) {
         console.error('Error saving room:', error);
@@ -363,7 +419,7 @@ async function deleteRoom(id) {
         }
 
         showAlert('Raum gelöscht', 'success');
-        loadRooms();
+        loadProjects();
         loadStats();
     } catch (error) {
         console.error('Error deleting room:', error);
