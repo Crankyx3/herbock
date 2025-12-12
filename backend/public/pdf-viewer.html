@@ -62,31 +62,50 @@
         // Set worker source
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // Send messages to React Native
+        function sendMessage(message) {
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify(message));
+            }
+            console.log('PDF Viewer:', message);
+        }
+
         // Get PDF URL from query parameter
         const urlParams = new URLSearchParams(window.location.search);
         const pdfUrl = urlParams.get('file');
 
+        sendMessage({ type: 'init', pdfUrl });
+
         if (!pdfUrl) {
-            document.getElementById('loading').innerHTML = '<div class="error">Keine PDF-Datei angegeben</div>';
+            const errorMsg = 'Keine PDF-Datei angegeben';
+            document.getElementById('loading').innerHTML = `<div class="error">${errorMsg}</div>`;
+            sendMessage({ type: 'error', message: errorMsg });
         } else {
             loadPDF(pdfUrl);
         }
 
         async function loadPDF(url) {
             try {
+                sendMessage({ type: 'loading', url });
                 const loadingTask = pdfjsLib.getDocument(url);
                 const pdf = await loadingTask.promise;
 
+                sendMessage({ type: 'loaded', numPages: pdf.numPages });
                 document.getElementById('loading').style.display = 'none';
 
                 // Render all pages
                 for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                     await renderPage(pdf, pageNum);
+                    sendMessage({ type: 'page_rendered', pageNum, total: pdf.numPages });
                 }
+
+                sendMessage({ type: 'complete' });
             } catch (error) {
                 console.error('Error loading PDF:', error);
+                const errorMsg = `Fehler beim Laden der PDF-Datei: ${error.message}`;
                 document.getElementById('loading').innerHTML =
-                    `<div class="error">Fehler beim Laden der PDF-Datei<br><small>${error.message}</small></div>`;
+                    `<div class="error">${errorMsg}</div>`;
+                sendMessage({ type: 'error', message: error.message, stack: error.stack });
             }
         }
 

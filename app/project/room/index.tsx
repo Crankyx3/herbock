@@ -36,6 +36,16 @@ export default function RoomFloorPlanScreen() {
   const room = rooms.find((r) => r.id === id);
   const roomDefects = defects.filter((d) => d.roomId === id);
 
+  // Debug logging
+  useEffect(() => {
+    if (room) {
+      console.log('Room loaded:', room.name);
+      console.log('Floor plan URL:', room.floorPlanUrl);
+      const pdfViewerUrl = `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl || '')}`;
+      console.log('PDF Viewer URL:', pdfViewerUrl);
+    }
+  }, [room]);
+
   if (!room) {
     return (
       <View style={styles.container}>
@@ -167,18 +177,32 @@ export default function RoomFloorPlanScreen() {
                   uri: `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`
                 }}
                 style={styles.webview}
-                onLoadStart={() => setPdfLoading(true)}
-                onLoadEnd={() => setPdfLoading(false)}
-                onError={(error) => {
-                  console.error('PDF loading error:', error);
+                onLoadStart={(e) => {
+                  console.log('WebView load start:', e.nativeEvent.url);
+                  setPdfLoading(true);
+                }}
+                onLoadEnd={(e) => {
+                  console.log('WebView load end:', e.nativeEvent.url);
                   setPdfLoading(false);
-                  Alert.alert('Fehler', 'PDF konnte nicht geladen werden');
+                }}
+                onError={(error) => {
+                  console.error('WebView error:', error.nativeEvent);
+                  setPdfLoading(false);
+                  Alert.alert('Fehler', 'PDF konnte nicht geladen werden: ' + JSON.stringify(error.nativeEvent));
+                }}
+                onMessage={(event) => {
+                  console.log('WebView message:', event.nativeEvent.data);
+                }}
+                onHttpError={(event) => {
+                  console.error('HTTP error:', event.nativeEvent);
+                  Alert.alert('HTTP Fehler', `Status: ${event.nativeEvent.statusCode}`);
                 }}
                 scrollEnabled={true}
                 scalesPageToFit={true}
                 startInLoadingState={true}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
+                mixedContentMode="always"
                 renderLoading={() => (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
