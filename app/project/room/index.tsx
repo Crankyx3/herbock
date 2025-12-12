@@ -1,20 +1,23 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Text, FAB, Card, Chip, Button, TextInput, SegmentedButtons } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { WebView } from 'react-native-webview';
 import { useProjectStore } from '../../../store/projectStore';
 import { useDefectsStore } from '../../../store/defectsStore';
 import { DefectPriority } from '../../../types';
 import { Colors, Sizes } from '../../../constants';
 
 const { width, height } = Dimensions.get('window');
+const API_URL = 'http://192.168.0.227:3000';
 
 export default function RoomFloorPlanScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { selectedProject } = useProjectStore();
-  const { defects, addDefect } = useDefectsStore();
+  const { defects, addDefect, rooms, loadRooms } = useDefectsStore();
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
+  const [pdfLoading, setPdfLoading] = useState(true);
 
   // Form state
   const [showDefectForm, setShowDefectForm] = useState(false);
@@ -23,13 +26,21 @@ export default function RoomFloorPlanScreen() {
   const [defectDescription, setDefectDescription] = useState('');
   const [defectPriority, setDefectPriority] = useState<DefectPriority>(DefectPriority.MEDIUM);
 
-  const room = selectedProject?.rooms?.find((r) => r.id === id);
+  // Load rooms when component mounts
+  useEffect(() => {
+    if (selectedProject) {
+      loadRooms(selectedProject.id);
+    }
+  }, [selectedProject?.id]);
+
+  const room = rooms.find((r) => r.id === id);
   const roomDefects = defects.filter((d) => d.roomId === id);
 
   if (!room) {
     return (
       <View style={styles.container}>
-        <Text>Raum nicht gefunden</Text>
+        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>Raum wird geladen...</Text>
       </View>
     );
   }
@@ -140,28 +151,60 @@ export default function RoomFloorPlanScreen() {
       </View>
 
       <View style={styles.floorPlanContainer}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={handleFloorPlanPress}
-          style={styles.floorPlanTouch}
-          onLayout={(event) => {
-            const { x, y, width, height } = event.nativeEvent.layout;
-            setImageLayout({ x, y, width, height });
-          }}
-        >
+        {room.floorPlanUrl ? (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={handleFloorPlanPress}
+              style={styles.floorPlanTouch}
+              onLayout={(event) => {
+                const { x, y, width, height } = event.nativeEvent.layout;
+                setImageLayout({ x, y, width, height });
+              }}
+            >
+              <WebView
+                source={{
+                  uri: `https://docs.google.com/gview?embedded=true&url=${API_URL}${room.floorPlanUrl}`
+                }}
+                style={styles.webview}
+                onLoadStart={() => setPdfLoading(true)}
+                onLoadEnd={() => setPdfLoading(false)}
+                onError={(error) => {
+                  console.error('PDF loading error:', error);
+                  setPdfLoading(false);
+                }}
+                scrollEnabled={true}
+                scalesPageToFit={true}
+                startInLoadingState={true}
+                renderLoading={() => (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                    <Text style={styles.loadingText}>Grundriss wird geladen...</Text>
+                  </View>
+                )}
+              />
+              {pdfLoading && (
+                <View style={styles.loadingOverlay}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={styles.loadingText}>Grundriss wird geladen...</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Render defect markers */}
+            {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+          </>
+        ) : (
           <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>Grundriss Platzhalter</Text>
+            <Text style={styles.placeholderText}>Kein Grundriss vorhanden</Text>
             <Text style={styles.placeholderSubtext}>
-              Hier wird später der echte Grundriss angezeigt
+              Für diesen Raum wurde noch kein Grundriss hochgeladen.
             </Text>
             <Text style={styles.placeholderHint}>
-              Tippen Sie irgendwo, um einen Mangel zu markieren
+              Bitte laden Sie einen Grundriss über das Admin-Dashboard hoch.
             </Text>
           </View>
-        </TouchableOpacity>
-
-        {/* Render defect markers */}
-        {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+        )}
       </View>
 
       <View style={styles.defectsListContainer}>
@@ -335,6 +378,36 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+  },
+  webview: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  loadingText: {
+    marginTop: Sizes.md,
+    color: Colors.textSecondary,
   },
   placeholderContainer: {
     flex: 1,

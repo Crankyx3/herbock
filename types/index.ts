@@ -49,6 +49,7 @@ export interface Room {
   floor?: string;
   area?: number;
   description?: string;
+  floorPlanUrl?: string;
 }
 
 export enum ProjectStatus {
