@@ -395,14 +395,15 @@ const styles = StyleSheet.create({
   },
   floorPlanTouch: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     width: '100%',
+    height: '100%',
   },
   webview: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#f5f5f5',
+    height: '100%',
+    backgroundColor: 'transparent',
+    opacity: 1,
   },
   loadingContainer: {
     position: 'absolute',
