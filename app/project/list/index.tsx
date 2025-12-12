@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Card, Text, Badge, Divider } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useProjectStore } from '../../../store/projectStore';
 import { Colors, Sizes } from '../../../constants';
 
 interface ProjectItemProps {
@@ -16,10 +17,19 @@ interface ProjectItemProps {
 
 const ProjectItem = ({ id, name, description, status, unreadMessages, openDefects }: ProjectItemProps) => {
   const router = useRouter();
+  const { projects, setSelectedProject } = useProjectStore();
+
+  const handlePress = () => {
+    const project = projects.find((p) => p.id === id);
+    if (project) {
+      setSelectedProject(project);
+      router.push('/project/detail');
+    }
+  };
 
   return (
     <Card style={styles.card}>
-      <TouchableOpacity onPress={() => {}}>
+      <TouchableOpacity onPress={handlePress}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.projectName}>
             {name}
@@ -67,37 +77,24 @@ const getStatusColor = (status: string) => {
 };
 
 export default function ProjectListScreen() {
-  const mockProjects: ProjectItemProps[] = [
-    {
-      id: '1',
-      name: 'Bauvorhaben Müller',
-      description: 'Neubau Einfamilienhaus',
-      status: 'ACTIVE',
-      unreadMessages: 3,
-      openDefects: 2,
-    },
-    {
-      id: '2',
-      name: 'Sanierung Altbau',
-      description: 'Komplettsanierung Mehrfamilienhaus',
-      status: 'ACTIVE',
-      unreadMessages: 0,
-      openDefects: 5,
-    },
-    {
-      id: '3',
-      name: 'Gewerbepark Nord',
-      description: 'Hallenbau mit Büroräumen',
-      status: 'ACTIVE',
-      unreadMessages: 1,
-      openDefects: 0,
-    },
-  ];
+  const { projects, loadProjects } = useProjectStore();
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
   return (
     <ScrollView style={styles.container}>
-      {mockProjects.map((project) => (
-        <ProjectItem key={project.id} {...project} />
+      {projects.map((project) => (
+        <ProjectItem
+          key={project.id}
+          id={project.id}
+          name={project.name}
+          description={project.description || ''}
+          status={project.status}
+          unreadMessages={project.unreadMessages}
+          openDefects={project.openDefects}
+        />
       ))}
     </ScrollView>
   );
