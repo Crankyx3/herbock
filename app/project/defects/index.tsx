@@ -15,8 +15,8 @@ export default function DefectsScreen() {
   const { selectedProject } = useProjectStore();
 
   useEffect(() => {
-    loadDefects();
     if (selectedProject) {
+      loadDefects(selectedProject.id);
       loadRooms(selectedProject.id);
     }
   }, [selectedProject]);

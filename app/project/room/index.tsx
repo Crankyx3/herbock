@@ -102,7 +102,7 @@ export default function RoomFloorPlanScreen() {
   };
 
   const renderDefectMarker = (defect: any, index: number) => {
-    if (!defect.location) return null;
+    if (!defect.location || !imageLayout.width) return null;
 
     const markerX = defect.location.x * imageLayout.width;
     const markerY = defect.location.y * imageLayout.height;
@@ -128,16 +128,23 @@ export default function RoomFloorPlanScreen() {
         style={[
           styles.defectMarker,
           {
-            left: imageLayout.x + markerX - 20,
-            top: imageLayout.y + markerY - 20,
+            left: markerX,
+            top: markerY - 40, // Position flag above the point
             backgroundColor: getPriorityColor(defect.priority),
           },
         ]}
         onPress={() => {
-          Alert.alert(defect.title, defect.description);
+          Alert.alert(
+            `Mangel ${index + 1}: ${defect.title}`,
+            defect.description || 'Keine Beschreibung',
+            [{ text: 'OK' }]
+          );
         }}
       >
-        <Text style={styles.markerText}>{index + 1}</Text>
+        <View style={styles.flagPole} />
+        <View style={[styles.flagBody, { backgroundColor: getPriorityColor(defect.priority) }]}>
+          <Text style={styles.markerText}>{index + 1}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -180,19 +187,20 @@ export default function RoomFloorPlanScreen() {
       <View style={styles.floorPlanContainer}>
         {room.floorPlanUrl ? (
           <>
-            <TouchableOpacity
-              activeOpacity={isPlacementMode ? 0.9 : 1}
-              onPress={handleFloorPlanPress}
-              style={[
-                styles.floorPlanTouch,
-                isPlacementMode && styles.floorPlanTouchActive
-              ]}
-              onLayout={(event) => {
-                const { x, y, width, height } = event.nativeEvent.layout;
-                setImageLayout({ x, y, width, height });
-              }}
-            >
-              <WebView
+            <View style={styles.floorPlanWrapper}>
+              <TouchableOpacity
+                activeOpacity={isPlacementMode ? 0.9 : 1}
+                onPress={handleFloorPlanPress}
+                style={[
+                  styles.floorPlanTouch,
+                  isPlacementMode && styles.floorPlanTouchActive
+                ]}
+                onLayout={(event) => {
+                  const { x, y, width, height } = event.nativeEvent.layout;
+                  setImageLayout({ x, y, width, height });
+                }}
+              >
+                <WebView
                 source={{
                   uri: `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`
                 }}
@@ -232,10 +240,11 @@ export default function RoomFloorPlanScreen() {
                 maximumZoomScale={5}
                 opacity={1}
               />
-            </TouchableOpacity>
+              </TouchableOpacity>
 
-            {/* Render defect markers */}
-            {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+              {/* Render defect markers */}
+              {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+            </View>
           </>
         ) : (
           <View style={styles.placeholderContainer}>
@@ -443,6 +452,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  floorPlanWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
   floorPlanTouch: {
     flex: 1,
     width: '100%',
@@ -510,23 +523,50 @@ const styles = StyleSheet.create({
   },
   defectMarker: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 44,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  flagPole: {
+    position: 'absolute',
+    width: 3,
+    height: 44,
+    backgroundColor: '#333',
+    left: 0,
+    top: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  flagBody: {
+    position: 'absolute',
+    left: 3,
+    top: 0,
+    width: 32,
+    height: 24,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#fff',
-    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.4,
     shadowRadius: 3,
+    elevation: 5,
   },
   markerText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   defectsListContainer: {
     padding: Sizes.md,
