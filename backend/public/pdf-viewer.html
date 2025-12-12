@@ -105,12 +105,76 @@
             font-size: 14px;
             text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        #defect-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 90%;
+            min-width: 300px;
+            z-index: 2000;
+            padding: 20px;
+        }
+        #defect-modal.show {
+            display: block;
+        }
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
+        }
+        #modal-overlay.show {
+            display: block;
+        }
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        .modal-content {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .modal-close {
+            background: #6200EE;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
     <div id="debug-info">PDF Viewer läuft...</div>
     <div id="loading">PDF wird geladen...</div>
     <div id="pdf-container"></div>
+
+    <!-- Defect Modal -->
+    <div id="modal-overlay"></div>
+    <div id="defect-modal">
+        <div class="modal-header" id="modal-title"></div>
+        <div class="modal-content" id="modal-description"></div>
+        <button class="modal-close" onclick="closeModal()">Schließen</button>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
@@ -200,6 +264,11 @@
                 finalHeight: scaledViewport.height
             });
 
+            // Create canvas wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'canvas-wrapper';
+            wrapper.dataset.pageNum = pageNum;
+
             // Create canvas
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
@@ -207,17 +276,19 @@
             canvas.width = scaledViewport.width;
 
             // Make canvas visible with explicit styling
-            // Set canvas resolution (actual pixels)
             canvas.style.backgroundColor = 'white';
             canvas.style.display = 'block';
             canvas.style.margin = '10px auto';
-            // Use CSS to scale down to fit screen width
             canvas.style.width = '100%';
             canvas.style.height = 'auto';
             canvas.style.maxWidth = '100%';
 
-            // Append to container
-            document.getElementById('pdf-container').appendChild(canvas);
+            // Add click handler for placement mode
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // Append canvas to wrapper, wrapper to container
+            wrapper.appendChild(canvas);
+            document.getElementById('pdf-container').appendChild(wrapper);
 
             // Render PDF page
             const renderContext = {
@@ -236,10 +307,34 @@
             });
         }
 
-        // Store markers and container dimensions
+        // Store markers, container dimensions, and placement mode
         let markers = [];
         let containerWidth = 0;
         let containerHeight = 0;
+        let isPlacementMode = false;
+        let currentMarkerData = {}; // Store marker data for modal
+
+        function closeModal() {
+            document.getElementById('defect-modal').classList.remove('show');
+            document.getElementById('modal-overlay').classList.remove('show');
+        }
+
+        function handleCanvasClick(e) {
+            if (!isPlacementMode) return;
+
+            const canvas = e.target;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+
+            console.log('Canvas clicked in placement mode:', x, y);
+
+            sendMessage({
+                type: 'placementClick',
+                x: x,
+                y: y
+            });
+        }
 
         // Listen for messages from React Native
         window.addEventListener('message', function(event) {
@@ -248,7 +343,16 @@
 
             if (data.type === 'setMarkers') {
                 markers = data.markers;
+                currentMarkerData = data.markers.reduce((acc, m) => {
+                    acc[m.id] = m;
+                    return acc;
+                }, {});
                 renderMarkers();
+            }
+
+            if (data.type === 'setPlacementMode') {
+                isPlacementMode = data.enabled;
+                console.log('Placement mode:', isPlacementMode);
             }
         });
 
@@ -259,7 +363,16 @@
 
             if (data.type === 'setMarkers') {
                 markers = data.markers;
+                currentMarkerData = data.markers.reduce((acc, m) => {
+                    acc[m.id] = m;
+                    return acc;
+                }, {});
                 renderMarkers();
+            }
+
+            if (data.type === 'setPlacementMode') {
+                isPlacementMode = data.enabled;
+                console.log('Placement mode:', isPlacementMode);
             }
         });
 
@@ -277,9 +390,14 @@
             // Remove existing markers
             document.querySelectorAll('.defect-marker').forEach(m => m.remove());
 
-            // Get container dimensions
-            const container = document.getElementById('pdf-container');
-            const canvas = container.querySelector('canvas');
+            // Get wrapper (not container!)
+            const wrapper = document.querySelector('.canvas-wrapper');
+            if (!wrapper) {
+                console.log('No wrapper yet, waiting...');
+                return;
+            }
+
+            const canvas = wrapper.querySelector('canvas');
             if (!canvas) {
                 console.log('No canvas yet, waiting...');
                 return;
@@ -315,16 +433,24 @@
 
                 markerEl.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    sendMessage({
-                        type: 'markerClick',
-                        markerId: marker.id,
-                        markerIndex: marker.index
-                    });
+                    const markerData = currentMarkerData[marker.id];
+
+                    // Show modal
+                    document.getElementById('modal-title').textContent =
+                        `Mangel ${marker.index}: ${markerData.title}`;
+                    document.getElementById('modal-description').textContent =
+                        markerData.description || 'Keine Beschreibung';
+                    document.getElementById('defect-modal').classList.add('show');
+                    document.getElementById('modal-overlay').classList.add('show');
                 });
 
-                container.appendChild(markerEl);
+                // Append to wrapper (not container!)
+                wrapper.appendChild(markerEl);
             });
         }
+
+        // Close modal when clicking overlay
+        document.getElementById('modal-overlay').addEventListener('click', closeModal);
 
         // Render markers when PDF is loaded
         const originalRenderPage = renderPage;
