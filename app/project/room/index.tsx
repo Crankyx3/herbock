@@ -27,15 +27,26 @@ export default function RoomFloorPlanScreen() {
   const [defectDescription, setDefectDescription] = useState('');
   const [defectPriority, setDefectPriority] = useState<DefectPriority>(DefectPriority.MEDIUM);
 
-  // Load rooms when component mounts
+  // Load rooms and defects when component mounts
   useEffect(() => {
     if (selectedProject) {
+      console.log('📦 Loading rooms and defects for project:', selectedProject.id);
       loadRooms(selectedProject.id);
+      // Also load defects for this project
+      const { loadDefects } = useDefectsStore.getState();
+      loadDefects(selectedProject.id);
     }
   }, [selectedProject?.id]);
 
   const room = rooms.find((r) => r.id === id);
   const roomDefects = defects.filter((d) => d.roomId === id);
+
+  // Debug logging for defects
+  useEffect(() => {
+    console.log('🔍 Total defects:', defects.length);
+    console.log('🔍 Room defects:', roomDefects.length);
+    console.log('🔍 ImageLayout:', imageLayout);
+  }, [defects, roomDefects, imageLayout]);
 
   // Debug logging
   useEffect(() => {
@@ -102,10 +113,26 @@ export default function RoomFloorPlanScreen() {
   };
 
   const renderDefectMarker = (defect: any, index: number) => {
-    if (!defect.location || !imageLayout.width) return null;
+    if (!defect.location || !imageLayout.width) {
+      console.log('⚠️ Skipping marker - no location or layout:', {
+        hasLocation: !!defect.location,
+        layoutWidth: imageLayout.width
+      });
+      return null;
+    }
 
     const markerX = defect.location.x * imageLayout.width;
     const markerY = defect.location.y * imageLayout.height;
+
+    console.log(`📍 Rendering marker ${index + 1}:`, {
+      defectId: defect.id,
+      locationX: defect.location.x,
+      locationY: defect.location.y,
+      markerX,
+      markerY,
+      imageLayoutWidth: imageLayout.width,
+      imageLayoutHeight: imageLayout.height
+    });
 
     const getPriorityColor = (priority: string) => {
       switch (priority) {
@@ -122,18 +149,20 @@ export default function RoomFloorPlanScreen() {
       }
     };
 
+    const color = getPriorityColor(defect.priority);
+
     return (
       <TouchableOpacity
         key={defect.id}
         style={[
           styles.defectMarker,
           {
-            left: markerX,
-            top: markerY - 40, // Position flag above the point
-            backgroundColor: getPriorityColor(defect.priority),
+            left: markerX - 18, // Center the marker (half of width 36)
+            top: markerY - 44, // Position flag above the point (full height)
           },
         ]}
         onPress={() => {
+          console.log('🎯 Marker pressed:', defect.title);
           Alert.alert(
             `Mangel ${index + 1}: ${defect.title}`,
             defect.description || 'Keine Beschreibung',
@@ -142,7 +171,7 @@ export default function RoomFloorPlanScreen() {
         }}
       >
         <View style={styles.flagPole} />
-        <View style={[styles.flagBody, { backgroundColor: getPriorityColor(defect.priority) }]}>
+        <View style={[styles.flagBody, { backgroundColor: color }]}>
           <Text style={styles.markerText}>{index + 1}</Text>
         </View>
       </TouchableOpacity>
@@ -455,6 +484,7 @@ const styles = StyleSheet.create({
   floorPlanWrapper: {
     flex: 1,
     position: 'relative',
+    overflow: 'hidden',
   },
   floorPlanTouch: {
     flex: 1,
@@ -528,6 +558,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     alignItems: 'center',
     zIndex: 1000,
+    elevation: 10,
+    pointerEvents: 'auto',
   },
   flagPole: {
     position: 'absolute',
