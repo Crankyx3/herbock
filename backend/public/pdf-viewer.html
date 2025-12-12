@@ -71,6 +71,40 @@
             border-radius: 8px;
             max-width: 80%;
         }
+        .defect-marker {
+            position: absolute;
+            width: 36px;
+            height: 44px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .flag-pole {
+            position: absolute;
+            width: 3px;
+            height: 44px;
+            background-color: #333;
+            left: 0;
+            top: 0;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .flag-body {
+            position: absolute;
+            left: 3px;
+            top: 0;
+            width: 32px;
+            height: 24px;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #fff;
+            box-shadow: 2px 2px 3px rgba(0,0,0,0.4);
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
     </style>
 </head>
 <body>
@@ -201,6 +235,103 @@
                 canvasHeight: canvas.height
             });
         }
+
+        // Store markers and container dimensions
+        let markers = [];
+        let containerWidth = 0;
+        let containerHeight = 0;
+
+        // Listen for messages from React Native
+        window.addEventListener('message', function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Received message:', data);
+
+            if (data.type === 'setMarkers') {
+                markers = data.markers;
+                renderMarkers();
+            }
+        });
+
+        // Also handle Android WebView messages
+        document.addEventListener('message', function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Received message (Android):', data);
+
+            if (data.type === 'setMarkers') {
+                markers = data.markers;
+                renderMarkers();
+            }
+        });
+
+        function getPriorityColor(priority) {
+            switch (priority) {
+                case 'CRITICAL': return '#B00020';
+                case 'HIGH': return '#F57C00';
+                case 'MEDIUM': return '#FF9800';
+                case 'LOW': return '#4CAF50';
+                default: return '#6200EE';
+            }
+        }
+
+        function renderMarkers() {
+            // Remove existing markers
+            document.querySelectorAll('.defect-marker').forEach(m => m.remove());
+
+            // Get container dimensions
+            const container = document.getElementById('pdf-container');
+            const canvas = container.querySelector('canvas');
+            if (!canvas) {
+                console.log('No canvas yet, waiting...');
+                return;
+            }
+
+            containerWidth = canvas.offsetWidth;
+            containerHeight = canvas.offsetHeight;
+
+            console.log('Rendering markers:', markers.length, 'Container:', containerWidth, 'x', containerHeight);
+
+            markers.forEach(marker => {
+                const markerEl = document.createElement('div');
+                markerEl.className = 'defect-marker';
+                markerEl.dataset.markerId = marker.id;
+                markerEl.dataset.markerIndex = marker.index;
+
+                const x = marker.x * containerWidth;
+                const y = marker.y * containerHeight;
+
+                markerEl.style.left = (x - 18) + 'px';
+                markerEl.style.top = (y - 44) + 'px';
+
+                const pole = document.createElement('div');
+                pole.className = 'flag-pole';
+
+                const body = document.createElement('div');
+                body.className = 'flag-body';
+                body.style.backgroundColor = getPriorityColor(marker.priority);
+                body.textContent = marker.index;
+
+                markerEl.appendChild(pole);
+                markerEl.appendChild(body);
+
+                markerEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sendMessage({
+                        type: 'markerClick',
+                        markerId: marker.id,
+                        markerIndex: marker.index
+                    });
+                });
+
+                container.appendChild(markerEl);
+            });
+        }
+
+        // Render markers when PDF is loaded
+        const originalRenderPage = renderPage;
+        renderPage = async function(...args) {
+            await originalRenderPage(...args);
+            setTimeout(renderMarkers, 100);
+        };
     </script>
 </body>
 </html>

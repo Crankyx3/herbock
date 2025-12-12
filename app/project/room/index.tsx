@@ -48,6 +48,36 @@ export default function RoomFloorPlanScreen() {
     console.log('🔍 ImageLayout:', imageLayout);
   }, [defects, roomDefects, imageLayout]);
 
+  // Send markers to WebView
+  const webViewRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    if (webViewRef.current && imageLayout.width > 0) {
+      const markers = roomDefects.map((defect, index) => ({
+        id: defect.id,
+        index: index + 1,
+        x: defect.location?.x || 0,
+        y: defect.location?.y || 0,
+        title: defect.title,
+        description: defect.description,
+        priority: defect.priority,
+      }));
+
+      const message = JSON.stringify({ type: 'setMarkers', markers });
+      webViewRef.current.postMessage(message);
+      console.log('📍 Sent markers to WebView:', markers.length);
+    }
+  }, [roomDefects, imageLayout.width]);
+
+  // Send placement mode to WebView
+  useEffect(() => {
+    if (webViewRef.current) {
+      const message = JSON.stringify({ type: 'setPlacementMode', enabled: isPlacementMode });
+      webViewRef.current.postMessage(message);
+      console.log('🎯 Placement mode:', isPlacementMode);
+    }
+  }, [isPlacementMode]);
+
   // Debug logging
   useEffect(() => {
     if (room) {
@@ -217,9 +247,7 @@ export default function RoomFloorPlanScreen() {
         {room.floorPlanUrl ? (
           <>
             <View style={styles.floorPlanWrapper}>
-              <TouchableOpacity
-                activeOpacity={isPlacementMode ? 0.9 : 1}
-                onPress={handleFloorPlanPress}
+              <View
                 style={[
                   styles.floorPlanTouch,
                   isPlacementMode && styles.floorPlanTouchActive
@@ -230,6 +258,7 @@ export default function RoomFloorPlanScreen() {
                 }}
               >
                 <WebView
+                ref={webViewRef}
                 source={{
                   uri: `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`
                 }}
@@ -248,7 +277,30 @@ export default function RoomFloorPlanScreen() {
                   Alert.alert('Fehler', 'PDF konnte nicht geladen werden: ' + JSON.stringify(error.nativeEvent));
                 }}
                 onMessage={(event) => {
-                  console.log('WebView message:', event.nativeEvent.data);
+                  const data = JSON.parse(event.nativeEvent.data);
+                  console.log('WebView message:', data);
+
+                  // Handle marker click from WebView
+                  if (data.type === 'markerClick') {
+                    const defect = roomDefects.find(d => d.id === data.markerId);
+                    if (defect) {
+                      Alert.alert(
+                        `Mangel ${data.markerIndex}: ${defect.title}`,
+                        defect.description || 'Keine Beschreibung',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }
+
+                  // Handle placement click from WebView
+                  if (data.type === 'placementClick' && isPlacementMode) {
+                    setDefectPosition({ x: data.x, y: data.y });
+                    setDefectTitle('');
+                    setDefectDescription('');
+                    setDefectPriority(DefectPriority.MEDIUM);
+                    setShowDefectForm(true);
+                    setIsPlacementMode(false);
+                  }
                 }}
                 onHttpError={(event) => {
                   console.error('HTTP error:', event.nativeEvent);
@@ -269,10 +321,7 @@ export default function RoomFloorPlanScreen() {
                 maximumZoomScale={5}
                 opacity={1}
               />
-              </TouchableOpacity>
-
-              {/* Render defect markers */}
-              {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+              </View>
             </View>
           </>
         ) : (
