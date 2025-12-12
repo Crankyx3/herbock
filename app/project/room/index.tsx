@@ -164,7 +164,7 @@ export default function RoomFloorPlanScreen() {
             >
               <WebView
                 source={{
-                  uri: `https://docs.google.com/gview?embedded=true&url=${API_URL}${room.floorPlanUrl}`
+                  uri: `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`
                 }}
                 style={styles.webview}
                 onLoadStart={() => setPdfLoading(true)}
@@ -172,10 +172,13 @@ export default function RoomFloorPlanScreen() {
                 onError={(error) => {
                   console.error('PDF loading error:', error);
                   setPdfLoading(false);
+                  Alert.alert('Fehler', 'PDF konnte nicht geladen werden');
                 }}
                 scrollEnabled={true}
                 scalesPageToFit={true}
                 startInLoadingState={true}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
                 renderLoading={() => (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={Colors.primary} />
