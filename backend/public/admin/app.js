@@ -42,14 +42,22 @@ async function loadDashboard() {
 
 async function loadStats() {
     try {
-        // Since we don't have auth endpoints yet, we'll query the database directly
-        // For now, show placeholder data
-        document.getElementById('stat-projects').textContent = '-';
-        document.getElementById('stat-rooms').textContent = '-';
-        document.getElementById('stat-defects').textContent = '-';
-        document.getElementById('stat-users').textContent = '-';
+        // Load projects count
+        const projectsResponse = await fetch(`${API_URL}/api/projects`);
+        const projects = await projectsResponse.json();
+        document.getElementById('stat-projects').textContent = projects.length;
 
-        // TODO: Add proper API calls when auth is implemented
+        // Calculate rooms and defects
+        let roomsCount = 0;
+        let defectsCount = 0;
+        projects.forEach(p => {
+            roomsCount += parseInt(p.room_count || 0);
+            defectsCount += parseInt(p.open_defects_count || 0);
+        });
+
+        document.getElementById('stat-rooms').textContent = roomsCount;
+        document.getElementById('stat-defects').textContent = defectsCount;
+        document.getElementById('stat-users').textContent = '2'; // Hardcoded for now
     } catch (error) {
         console.error('Error loading stats:', error);
     }
@@ -58,17 +66,59 @@ async function loadStats() {
 // ==================== Projects ====================
 async function loadProjects() {
     try {
-        // For now, we'll use direct database queries
-        // TODO: Implement auth and proper API calls
+        const response = await fetch(`${API_URL}/api/projects`);
+        const projects = await response.json();
 
-        const html = `
-            <div class="card">
+        if (projects.length === 0) {
+            document.getElementById('projects-list').innerHTML = `
+                <div class="card">
+                    <div class="card-body text-center text-muted">
+                        <i class="bi bi-folder" style="font-size: 48px;"></i>
+                        <p class="mt-3">Keine Projekte vorhanden</p>
+                        <button class="btn btn-primary" onclick="showProjectModal()">
+                            <i class="bi bi-plus-circle"></i> Erstes Projekt erstellen
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const html = projects.map(project => `
+            <div class="card mb-3">
                 <div class="card-body">
-                    <p class="text-muted">Projekte werden geladen...</p>
-                    <p><small>Hinweis: API-Authentifizierung wird noch implementiert</small></p>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="card-title">
+                                <i class="bi bi-folder"></i> ${project.name}
+                            </h5>
+                            <p class="card-text text-muted">${project.description || 'Keine Beschreibung'}</p>
+                            <div class="mb-2">
+                                <span class="badge bg-primary">${project.status}</span>
+                                <span class="badge bg-info text-dark">
+                                    <i class="bi bi-door-open"></i> ${project.room_count || 0} Räume
+                                </span>
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-exclamation-triangle"></i> ${project.open_defects_count || 0} Mängel
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                Start: ${formatDate(project.startDate)}
+                                ${project.endDate ? ' | Ende: ' + formatDate(project.endDate) : ''}
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewProject('${project.id}')">
+                                <i class="bi bi-eye"></i> Ansehen
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteProject('${project.id}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        `;
+        `).join('');
 
         document.getElementById('projects-list').innerHTML = html;
     } catch (error) {
@@ -79,16 +129,23 @@ async function loadProjects() {
 
 async function loadProjectsForDropdown() {
     try {
+        const response = await fetch(`${API_URL}/api/projects`);
+        const projects = await response.json();
+
         const select = document.getElementById('room-projectId');
         const filter = document.getElementById('room-project-filter');
 
-        // Placeholder
-        select.innerHTML = '<option value="">Projekt wählen...</option>';
-        if (filter) {
-            filter.innerHTML = '<option value="">Alle Projekte</option>';
+        const options = projects.map(p =>
+            `<option value="${p.id}">${p.name}</option>`
+        ).join('');
+
+        if (select) {
+            select.innerHTML = '<option value="">Projekt wählen...</option>' + options;
         }
 
-        // TODO: Load real projects
+        if (filter) {
+            filter.innerHTML = '<option value="">Alle Projekte</option>' + options;
+        }
     } catch (error) {
         console.error('Error loading projects dropdown:', error);
     }
@@ -133,22 +190,109 @@ async function saveProject() {
         bootstrap.Modal.getInstance(document.getElementById('projectModal')).hide();
         loadProjects();
         loadProjectsForDropdown();
+        loadStats();
     } catch (error) {
         console.error('Error saving project:', error);
         showAlert('Fehler beim Speichern des Projekts', 'danger');
     }
 }
 
+async function viewProject(id) {
+    try {
+        const response = await fetch(`${API_URL}/api/projects/${id}`);
+        const project = await response.json();
+
+        alert(`Projekt: ${project.name}\nRäume: ${project.rooms?.length || 0}\nMängel: ${project.defects?.length || 0}`);
+    } catch (error) {
+        console.error('Error viewing project:', error);
+    }
+}
+
+async function deleteProject(id) {
+    if (!confirm('Möchten Sie dieses Projekt wirklich löschen?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/projects/${id}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            throw new Error('Fehler beim Löschen');
+        }
+
+        showAlert('Projekt gelöscht', 'success');
+        loadProjects();
+        loadStats();
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        showAlert('Fehler beim Löschen des Projekts', 'danger');
+    }
+}
+
 // ==================== Rooms ====================
 async function loadRooms() {
     try {
-        const html = `
-            <div class="card">
+        const filterProjectId = document.getElementById('room-project-filter')?.value;
+
+        const response = await fetch(`${API_URL}/api/projects`);
+        const projects = await response.json();
+
+        let allRooms = [];
+        for (const project of projects) {
+            if (!filterProjectId || project.id === filterProjectId) {
+                const roomsResponse = await fetch(`${API_URL}/api/projects/${project.id}/rooms`);
+                const rooms = await roomsResponse.json();
+                rooms.forEach(room => {
+                    room.projectName = project.name;
+                });
+                allRooms = allRooms.concat(rooms);
+            }
+        }
+
+        if (allRooms.length === 0) {
+            document.getElementById('rooms-list').innerHTML = `
+                <div class="card">
+                    <div class="card-body text-center text-muted">
+                        <i class="bi bi-door-open" style="font-size: 48px;"></i>
+                        <p class="mt-3">Keine Räume vorhanden</p>
+                        <button class="btn btn-primary" onclick="showRoomModal()">
+                            <i class="bi bi-plus-circle"></i> Ersten Raum erstellen
+                        </button>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const html = allRooms.map(room => `
+            <div class="card mb-3">
                 <div class="card-body">
-                    <p class="text-muted">Räume werden geladen...</p>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h5 class="card-title">
+                                <i class="bi bi-door-open"></i> ${room.name}
+                            </h5>
+                            <p class="card-text">
+                                <span class="badge bg-secondary">${room.projectName}</span>
+                                ${room.floor ? `<span class="badge bg-info text-dark">${room.floor}</span>` : ''}
+                                ${room.area ? `<span class="badge bg-light text-dark">${room.area} m²</span>` : ''}
+                            </p>
+                            ${room.description ? `<p class="text-muted small">${room.description}</p>` : ''}
+                            <small class="text-muted">
+                                <i class="bi bi-exclamation-triangle"></i> ${room.defect_count || 0} Mängel
+                            </small>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteRoom('${room.id}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        `;
+        `).join('');
 
         document.getElementById('rooms-list').innerHTML = html;
     } catch (error) {
@@ -197,24 +341,50 @@ async function saveRoom() {
         showAlert('Raum erfolgreich erstellt!', 'success');
         bootstrap.Modal.getInstance(document.getElementById('roomModal')).hide();
         loadRooms();
+        loadStats();
     } catch (error) {
         console.error('Error saving room:', error);
         showAlert('Fehler beim Speichern des Raums', 'danger');
     }
 }
 
+async function deleteRoom(id) {
+    if (!confirm('Möchten Sie diesen Raum wirklich löschen?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/api/rooms/${id}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            throw new Error('Fehler beim Löschen');
+        }
+
+        showAlert('Raum gelöscht', 'success');
+        loadRooms();
+        loadStats();
+    } catch (error) {
+        console.error('Error deleting room:', error);
+        showAlert('Fehler beim Löschen des Raums', 'danger');
+    }
+}
+
 // ==================== Defects ====================
 async function loadDefects() {
     try {
-        const html = `
+        const response = await fetch(`${API_URL}/api/projects`);
+        const projects = await response.json();
+
+        document.getElementById('defects-list').innerHTML = `
             <div class="card">
                 <div class="card-body">
-                    <p class="text-muted">Mängel werden geladen...</p>
+                    <p class="text-muted">Mängel-Ansicht kommt bald...</p>
+                    <p><small>Mängel werden über die Mobile App erfasst</small></p>
                 </div>
             </div>
         `;
-
-        document.getElementById('defects-list').innerHTML = html;
     } catch (error) {
         console.error('Error loading defects:', error);
         showAlert('Fehler beim Laden der Mängel', 'danger');
@@ -224,15 +394,18 @@ async function loadDefects() {
 // ==================== Users ====================
 async function loadUsers() {
     try {
-        const html = `
+        document.getElementById('users-list').innerHTML = `
             <div class="card">
                 <div class="card-body">
-                    <p class="text-muted">Benutzer werden geladen...</p>
+                    <h6>Test-Benutzer:</h6>
+                    <ul>
+                        <li><strong>admin@herbock.de</strong> (Password: admin123) - ADMIN</li>
+                        <li><strong>test@herbock.de</strong> (Password: test123) - EMPLOYEE</li>
+                    </ul>
+                    <p class="text-muted"><small>Benutzer-Verwaltung kommt später</small></p>
                 </div>
             </div>
         `;
-
-        document.getElementById('users-list').innerHTML = html;
     } catch (error) {
         console.error('Error loading users:', error);
         showAlert('Fehler beim Laden der Benutzer', 'danger');
@@ -257,6 +430,7 @@ function showAlert(message, type = 'info') {
 }
 
 function formatDate(dateString) {
+    if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('de-DE');
 }
