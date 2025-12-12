@@ -63,13 +63,13 @@ export const getRoomById = async (req: AuthRequest, res: Response) => {
 
 export const createRoom = async (req: AuthRequest, res: Response) => {
   try {
-    const { projectId, name, floor, area, description } = req.body;
+    const { projectId, name, floor, area, description, floorPlanUrl } = req.body;
 
     const result = await db.query(
-      `INSERT INTO rooms (id, "projectId", name, floor, area, description, "createdAt", "updatedAt")
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW(), NOW())
+      `INSERT INTO rooms (id, "projectId", name, floor, area, description, "floorPlanUrl", "createdAt", "updatedAt")
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, NOW(), NOW())
        RETURNING *`,
-      [projectId, name, floor, area ? parseFloat(area) : null, description]
+      [projectId, name, floor, area ? parseFloat(area) : null, description, floorPlanUrl || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -82,14 +82,14 @@ export const createRoom = async (req: AuthRequest, res: Response) => {
 export const updateRoom = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, floor, area, description } = req.body;
+    const { name, floor, area, description, floorPlanUrl } = req.body;
 
     const result = await db.query(
       `UPDATE rooms
-       SET name = $1, floor = $2, area = $3, description = $4, "updatedAt" = NOW()
-       WHERE id = $5
+       SET name = $1, floor = $2, area = $3, description = $4, "floorPlanUrl" = $5, "updatedAt" = NOW()
+       WHERE id = $6
        RETURNING *`,
-      [name, floor, area ? parseFloat(area) : null, description, id]
+      [name, floor, area ? parseFloat(area) : null, description, floorPlanUrl !== undefined ? floorPlanUrl : null, id]
     );
 
     if (result.rows.length === 0) {

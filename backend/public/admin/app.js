@@ -219,6 +219,11 @@ async function viewProjectDetail(projectId) {
                                                 <span class="badge bg-warning text-dark">
                                                     <i class="bi bi-exclamation-triangle"></i> ${room.defect_count || 0} Mängel
                                                 </span>
+                                                ${room.floorPlanUrl ? `
+                                                    <span class="badge bg-success">
+                                                        <i class="bi bi-file-pdf"></i> Grundriss vorhanden
+                                                    </span>
+                                                ` : ''}
                                             </div>
                                             <div class="text-end mt-2">
                                                 <small class="text-primary">Klicken für Details →</small>
@@ -330,6 +335,13 @@ async function viewRoomDetail(projectId, roomId) {
                                     <i class="bi bi-exclamation-triangle"></i> ${roomDefects.length} Mängel
                                 </span>
                             </div>
+                            ${room.floorPlanUrl ? `
+                                <div class="mt-3">
+                                    <a href="${room.floorPlanUrl}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-file-pdf"></i> Grundriss ansehen
+                                    </a>
+                                </div>
+                            ` : ''}
                         </div>
                         <div class="col-md-4 text-end">
                             <button class="btn btn-success" onclick="showCreateDefectModal('${projectId}', '${roomId}')">
@@ -670,6 +682,7 @@ async function saveRoom() {
     const floor = document.getElementById('room-floor').value;
     const area = document.getElementById('room-area').value;
     const description = document.getElementById('room-description').value;
+    const floorPlanFile = document.getElementById('room-floorplan').files[0];
 
     if (!projectId || !name) {
         showAlert('Bitte füllen Sie alle Pflichtfelder aus', 'warning');
@@ -677,6 +690,28 @@ async function saveRoom() {
     }
 
     try {
+        let floorPlanUrl = null;
+
+        // Upload floor plan PDF if selected
+        if (floorPlanFile) {
+            const formData = new FormData();
+            formData.append('floorplan', floorPlanFile);
+
+            const uploadResponse = await fetch(`${API_URL}/api/upload/floorplan`, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Fehler beim Hochladen des Grundrisses');
+            }
+
+            const uploadResult = await uploadResponse.json();
+            floorPlanUrl = uploadResult.fileUrl;
+            console.log('Floor plan uploaded:', floorPlanUrl);
+        }
+
+        // Create room with floor plan URL
         const response = await fetch(`${API_URL}/api/rooms`, {
             method: 'POST',
             headers: {
@@ -688,6 +723,7 @@ async function saveRoom() {
                 floor,
                 area: area ? parseFloat(area) : null,
                 description,
+                floorPlanUrl,
             }),
         });
 
@@ -707,7 +743,7 @@ async function saveRoom() {
         loadStats();
     } catch (error) {
         console.error('Error saving room:', error);
-        showAlert('Fehler beim Speichern des Raums', 'danger');
+        showAlert('Fehler beim Speichern des Raums: ' + error.message, 'danger');
     }
 }
 
@@ -797,3 +833,30 @@ function formatDate(dateString) {
     const date = new Date(dateString);
     return date.toLocaleDateString('de-DE');
 }
+
+// ==================== Floor Plan Upload ====================
+function removeFloorPlan() {
+    const fileInput = document.getElementById('room-floorplan');
+    const preview = document.getElementById('floor-plan-preview');
+    fileInput.value = '';
+    preview.style.display = 'none';
+}
+
+// Auto-show preview when file is selected
+document.addEventListener('DOMContentLoaded', () => {
+    const floorPlanInput = document.getElementById('room-floorplan');
+    if (floorPlanInput) {
+        floorPlanInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            const preview = document.getElementById('floor-plan-preview');
+            const filename = document.getElementById('floor-plan-filename');
+
+            if (file) {
+                filename.textContent = file.name;
+                preview.style.display = 'block';
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+    }
+});

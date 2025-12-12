@@ -2,6 +2,8 @@ import { Router } from 'express';
 import * as projectsController from '../controllers/projectsController';
 import * as roomsController from '../controllers/roomsController';
 import * as defectsController from '../controllers/defectsController';
+import * as uploadController from '../controllers/uploadController';
+import { upload } from '../middleware/upload';
 
 const router = Router();
 
@@ -30,6 +32,10 @@ router.get('/defects/:id', defectsController.getDefectById);
 router.post('/defects', defectsController.createDefect);
 router.put('/defects/:id', defectsController.updateDefect);
 router.delete('/defects/:id', defectsController.deleteDefect);
+
+// ==================== Upload Routes ====================
+router.post('/upload/floorplan', upload.single('floorplan'), uploadController.uploadFloorPlan);
+router.delete('/upload/floorplan/:filename', uploadController.deleteFloorPlan);
 
 // TODO: Add authentication middleware back when auth is implemented
 // TODO: Add auth routes
