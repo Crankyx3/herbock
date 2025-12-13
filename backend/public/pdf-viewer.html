@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>PDF Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background-color: #f5f5f5;
+        }
+        #pdf-container {
+            width: 100vw;
+            height: 100vh;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 0;
+            background-color: #f5f5f5;
+        }
+        #debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 1000;
+            max-width: 200px;
+        }
+        canvas {
+            display: block;
+            margin-bottom: 10px;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #333;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            background: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .error {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #ff6b6b;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            max-width: 80%;
+        }
+        .defect-marker {
+            position: absolute;
+            width: 36px;
+            height: 44px;
+            cursor: pointer;
+            z-index: 1000;
+        }
+        .flag-pole {
+            position: absolute;
+            width: 3px;
+            height: 44px;
+            background-color: #333;
+            left: 0;
+            top: 0;
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        .flag-body {
+            position: absolute;
+            left: 3px;
+            top: 0;
+            width: 32px;
+            height: 24px;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #fff;
+            box-shadow: 2px 2px 3px rgba(0,0,0,0.4);
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        #defect-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 90%;
+            min-width: 300px;
+            z-index: 2000;
+            padding: 20px;
+        }
+        #defect-modal.show {
+            display: block;
+        }
+        #modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
+        }
+        #modal-overlay.show {
+            display: block;
+        }
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        .modal-content {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+        }
+        .modal-close {
+            background: #6200EE;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="debug-info">PDF Viewer läuft...</div>
+    <div id="loading">PDF wird geladen...</div>
+    <div id="pdf-container"></div>
+
+    <!-- Defect Modal -->
+    <div id="modal-overlay"></div>
+    <div id="defect-modal">
+        <div class="modal-header" id="modal-title"></div>
+        <div class="modal-content" id="modal-description"></div>
+        <button class="modal-close" onclick="closeModal()">Schließen</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Set worker source
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Send messages to React Native
+        function sendMessage(message) {
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify(message));
+            }
+            console.log('PDF Viewer:', message);
+        }
+
+        // Get PDF URL from query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const pdfUrl = urlParams.get('file');
+
+        sendMessage({ type: 'init', pdfUrl });
+
+        if (!pdfUrl) {
+            const errorMsg = 'Keine PDF-Datei angegeben';
+            document.getElementById('loading').innerHTML = `<div class="error">${errorMsg}</div>`;
+            sendMessage({ type: 'error', message: errorMsg });
+        } else {
+            loadPDF(pdfUrl);
+        }
+
+        async function loadPDF(url) {
+            try {
+                sendMessage({ type: 'loading', url });
+                const loadingTask = pdfjsLib.getDocument(url);
+                const pdf = await loadingTask.promise;
+
+                sendMessage({ type: 'loaded', numPages: pdf.numPages });
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('debug-info').textContent = `PDF: ${pdf.numPages} Seite(n)`;
+
+                // Render all pages
+                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                    await renderPage(pdf, pageNum);
+                    sendMessage({ type: 'page_rendered', pageNum, total: pdf.numPages });
+                }
+
+                sendMessage({ type: 'complete' });
+            } catch (error) {
+                console.error('Error loading PDF:', error);
+                const errorMsg = `Fehler beim Laden der PDF-Datei: ${error.message}`;
+                document.getElementById('loading').innerHTML =
+                    `<div class="error">${errorMsg}</div>`;
+                sendMessage({ type: 'error', message: error.message, stack: error.stack });
+            }
+        }
+
+        async function renderPage(pdf, pageNum) {
+            const page = await pdf.getPage(pageNum);
+
+            // Get viewport at scale 1
+            const viewport = page.getViewport({ scale: 1 });
+
+            // Calculate scale based on available width
+            // Use fallback if window.innerWidth is 0 (can happen in WebView)
+            const availableWidth = window.innerWidth || screen.width || 375; // Fallback to typical mobile width
+            let scale = (availableWidth * 0.95) / viewport.width;
+
+            // Ensure scale is valid and reasonable
+            if (!scale || scale <= 0 || !isFinite(scale)) {
+                scale = 1.5; // Default scale for mobile
+            } else if (scale > 3.0) {
+                scale = 3.0; // Max scale for quality
+            } else if (scale < 0.2) {
+                scale = 0.2; // Min scale to avoid tiny rendering
+            }
+
+            const scaledViewport = page.getViewport({ scale });
+
+            sendMessage({
+                type: 'debug',
+                message: 'Rendering page',
+                pageNum,
+                windowWidth: window.innerWidth,
+                screenWidth: screen.width,
+                availableWidth,
+                viewportWidth: viewport.width,
+                calculatedScale: scale,
+                finalWidth: scaledViewport.width,
+                finalHeight: scaledViewport.height
+            });
+
+            // Create canvas wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'canvas-wrapper';
+            wrapper.dataset.pageNum = pageNum;
+
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = scaledViewport.height;
+            canvas.width = scaledViewport.width;
+
+            // Make canvas visible with explicit styling
+            canvas.style.backgroundColor = 'white';
+            canvas.style.display = 'block';
+            canvas.style.margin = '10px auto';
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.maxWidth = '100%';
+
+            // Add click handler for placement mode
+            canvas.addEventListener('click', handleCanvasClick);
+
+            // Append canvas to wrapper, wrapper to container
+            wrapper.appendChild(canvas);
+            document.getElementById('pdf-container').appendChild(wrapper);
+
+            // Render PDF page
+            const renderContext = {
+                canvasContext: context,
+                viewport: scaledViewport
+            };
+
+            await page.render(renderContext).promise;
+
+            sendMessage({
+                type: 'debug',
+                message: 'Page rendered successfully',
+                pageNum,
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height
+            });
+        }
+
+        // Store markers, container dimensions, and placement mode
+        let markers = [];
+        let containerWidth = 0;
+        let containerHeight = 0;
+        let isPlacementMode = false;
+        let currentMarkerData = {}; // Store marker data for modal
+
+        function closeModal() {
+            document.getElementById('defect-modal').classList.remove('show');
+            document.getElementById('modal-overlay').classList.remove('show');
+        }
+
+        function handleCanvasClick(e) {
+            if (!isPlacementMode) return;
+
+            const canvas = e.target;
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+
+            console.log('Canvas clicked in placement mode:', x, y);
+
+            sendMessage({
+                type: 'placementClick',
+                x: x,
+                y: y
+            });
+        }
+
+        // Listen for messages from React Native
+        window.addEventListener('message', function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Received message:', data);
+
+            if (data.type === 'setMarkers') {
+                markers = data.markers;
+                currentMarkerData = data.markers.reduce((acc, m) => {
+                    acc[m.id] = m;
+                    return acc;
+                }, {});
+                renderMarkers();
+            }
+
+            if (data.type === 'setPlacementMode') {
+                isPlacementMode = data.enabled;
+                console.log('Placement mode:', isPlacementMode);
+            }
+        });
+
+        // Also handle Android WebView messages
+        document.addEventListener('message', function(event) {
+            const data = JSON.parse(event.data);
+            console.log('Received message (Android):', data);
+
+            if (data.type === 'setMarkers') {
+                markers = data.markers;
+                currentMarkerData = data.markers.reduce((acc, m) => {
+                    acc[m.id] = m;
+                    return acc;
+                }, {});
+                renderMarkers();
+            }
+
+            if (data.type === 'setPlacementMode') {
+                isPlacementMode = data.enabled;
+                console.log('Placement mode:', isPlacementMode);
+            }
+        });
+
+        function getPriorityColor(priority) {
+            switch (priority) {
+                case 'CRITICAL': return '#B00020';
+                case 'HIGH': return '#F57C00';
+                case 'MEDIUM': return '#FF9800';
+                case 'LOW': return '#4CAF50';
+                default: return '#6200EE';
+            }
+        }
+
+        function renderMarkers() {
+            // Remove existing markers
+            document.querySelectorAll('.defect-marker').forEach(m => m.remove());
+
+            // Get wrapper (not container!)
+            const wrapper = document.querySelector('.canvas-wrapper');
+            if (!wrapper) {
+                console.log('No wrapper yet, waiting...');
+                return;
+            }
+
+            const canvas = wrapper.querySelector('canvas');
+            if (!canvas) {
+                console.log('No canvas yet, waiting...');
+                return;
+            }
+
+            containerWidth = canvas.offsetWidth;
+            containerHeight = canvas.offsetHeight;
+
+            console.log('Rendering markers:', markers.length, 'Container:', containerWidth, 'x', containerHeight);
+
+            markers.forEach(marker => {
+                const markerEl = document.createElement('div');
+                markerEl.className = 'defect-marker';
+                markerEl.dataset.markerId = marker.id;
+                markerEl.dataset.markerIndex = marker.index;
+
+                const x = marker.x * containerWidth;
+                const y = marker.y * containerHeight;
+
+                markerEl.style.left = (x - 18) + 'px';
+                markerEl.style.top = (y - 44) + 'px';
+
+                const pole = document.createElement('div');
+                pole.className = 'flag-pole';
+
+                const body = document.createElement('div');
+                body.className = 'flag-body';
+                body.style.backgroundColor = getPriorityColor(marker.priority);
+                body.textContent = marker.index;
+
+                markerEl.appendChild(pole);
+                markerEl.appendChild(body);
+
+                markerEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const markerData = currentMarkerData[marker.id];
+
+                    // Show modal
+                    document.getElementById('modal-title').textContent =
+                        `Mangel ${marker.index}: ${markerData.title}`;
+                    document.getElementById('modal-description').textContent =
+                        markerData.description || 'Keine Beschreibung';
+                    document.getElementById('defect-modal').classList.add('show');
+                    document.getElementById('modal-overlay').classList.add('show');
+                });
+
+                // Append to wrapper (not container!)
+                wrapper.appendChild(markerEl);
+            });
+        }
+
+        // Close modal when clicking overlay
+        document.getElementById('modal-overlay').addEventListener('click', closeModal);
+
+        // Render markers when PDF is loaded
+        const originalRenderPage = renderPage;
+        renderPage = async function(...args) {
+            await originalRenderPage(...args);
+            setTimeout(renderMarkers, 100);
+        };
+    </script>
+</body>
+</html>

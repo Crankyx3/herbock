@@ -21,6 +21,9 @@ app.use(express.urlencoded({ extended: true }));
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Serve public files (including pdf-viewer.html)
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Serve admin dashboard
 app.use('/admin', express.static(path.join(__dirname, '../public/admin')));
 

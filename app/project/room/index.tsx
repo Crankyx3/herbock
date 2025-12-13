@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Modal, Alert, ActivityIndicator } from 'react-native';
 import { Text, FAB, Card, Chip, Button, TextInput, SegmentedButtons } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { WebView } from 'react-native-webview';
 import { useProjectStore } from '../../../store/projectStore';
 import { useDefectsStore } from '../../../store/defectsStore';
 import { DefectPriority } from '../../../types';
 import { Colors, Sizes } from '../../../constants';
 
 const { width, height } = Dimensions.get('window');
+const API_URL = 'http://192.168.0.227:3000';
 
 export default function RoomFloorPlanScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { selectedProject } = useProjectStore();
-  const { defects, addDefect } = useDefectsStore();
+  const { defects, addDefect, rooms, loadRooms } = useDefectsStore();
   const [imageLayout, setImageLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [isPlacementMode, setIsPlacementMode] = useState(false);
 
   // Form state
   const [showDefectForm, setShowDefectForm] = useState(false);
@@ -23,18 +27,85 @@ export default function RoomFloorPlanScreen() {
   const [defectDescription, setDefectDescription] = useState('');
   const [defectPriority, setDefectPriority] = useState<DefectPriority>(DefectPriority.MEDIUM);
 
-  const room = selectedProject?.rooms?.find((r) => r.id === id);
-  const roomDefects = defects.filter((d) => d.roomId === id);
+  // Load rooms and defects when component mounts
+  useEffect(() => {
+    if (selectedProject) {
+      console.log('📦 Loading rooms and defects for project:', selectedProject.id);
+      loadRooms(selectedProject.id);
+      // Also load defects for this project
+      const { loadDefects } = useDefectsStore.getState();
+      loadDefects(selectedProject.id);
+    }
+  }, [selectedProject?.id]);
+
+  const room = rooms.find((r) => r.id === id);
+  // Filter and sort defects by creation date (oldest first) for stable indices
+  const roomDefects = defects
+    .filter((d) => d.roomId === id)
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  // Debug logging for defects
+  useEffect(() => {
+    console.log('🔍 Total defects:', defects.length);
+    console.log('🔍 Room defects:', roomDefects.length);
+    console.log('🔍 ImageLayout:', imageLayout);
+  }, [defects, roomDefects, imageLayout]);
+
+  // Send markers to WebView
+  const webViewRef = React.useRef<any>(null);
+
+  useEffect(() => {
+    if (webViewRef.current && imageLayout.width > 0) {
+      const markers = roomDefects.map((defect, index) => ({
+        id: defect.id,
+        index: index + 1,
+        x: defect.location?.x || 0,
+        y: defect.location?.y || 0,
+        title: defect.title,
+        description: defect.description,
+        priority: defect.priority,
+      }));
+
+      const message = JSON.stringify({ type: 'setMarkers', markers });
+      webViewRef.current.postMessage(message);
+      console.log('📍 Sent markers to WebView:', markers.length);
+    }
+  }, [roomDefects, imageLayout.width]);
+
+  // Send placement mode to WebView
+  useEffect(() => {
+    if (webViewRef.current) {
+      const message = JSON.stringify({ type: 'setPlacementMode', enabled: isPlacementMode });
+      webViewRef.current.postMessage(message);
+      console.log('🎯 Placement mode:', isPlacementMode);
+    }
+  }, [isPlacementMode]);
+
+  // Debug logging
+  useEffect(() => {
+    if (room) {
+      console.log('Room loaded:', room.name);
+      console.log('Floor plan URL:', room.floorPlanUrl);
+      const pdfViewerUrl = `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl || '')}`;
+      console.log('PDF Viewer URL:', pdfViewerUrl);
+    }
+  }, [room]);
 
   if (!room) {
     return (
       <View style={styles.container}>
-        <Text>Raum nicht gefunden</Text>
+        <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 50 }} />
+        <Text style={{ textAlign: 'center', marginTop: 20 }}>Raum wird geladen...</Text>
       </View>
     );
   }
 
   const handleFloorPlanPress = (event: any) => {
+    // Only allow defect placement in placement mode
+    if (!isPlacementMode) {
+      return;
+    }
+
     const { locationX, locationY } = event.nativeEvent;
 
     // Calculate relative position (0-1 range)
@@ -47,6 +118,7 @@ export default function RoomFloorPlanScreen() {
     setDefectDescription('');
     setDefectPriority(DefectPriority.MEDIUM);
     setShowDefectForm(true);
+    setIsPlacementMode(false); // Exit placement mode after placing
   };
 
   const handleSaveDefect = () => {
@@ -74,10 +146,26 @@ export default function RoomFloorPlanScreen() {
   };
 
   const renderDefectMarker = (defect: any, index: number) => {
-    if (!defect.location) return null;
+    if (!defect.location || !imageLayout.width) {
+      console.log('⚠️ Skipping marker - no location or layout:', {
+        hasLocation: !!defect.location,
+        layoutWidth: imageLayout.width
+      });
+      return null;
+    }
 
     const markerX = defect.location.x * imageLayout.width;
     const markerY = defect.location.y * imageLayout.height;
+
+    console.log(`📍 Rendering marker ${index + 1}:`, {
+      defectId: defect.id,
+      locationX: defect.location.x,
+      locationY: defect.location.y,
+      markerX,
+      markerY,
+      imageLayoutWidth: imageLayout.width,
+      imageLayoutHeight: imageLayout.height
+    });
 
     const getPriorityColor = (priority: string) => {
       switch (priority) {
@@ -94,22 +182,31 @@ export default function RoomFloorPlanScreen() {
       }
     };
 
+    const color = getPriorityColor(defect.priority);
+
     return (
       <TouchableOpacity
         key={defect.id}
         style={[
           styles.defectMarker,
           {
-            left: imageLayout.x + markerX - 20,
-            top: imageLayout.y + markerY - 20,
-            backgroundColor: getPriorityColor(defect.priority),
+            left: markerX - 18, // Center the marker (half of width 36)
+            top: markerY - 44, // Position flag above the point (full height)
           },
         ]}
         onPress={() => {
-          Alert.alert(defect.title, defect.description);
+          console.log('🎯 Marker pressed:', defect.title);
+          Alert.alert(
+            `Mangel ${index + 1}: ${defect.title}`,
+            defect.description || 'Keine Beschreibung',
+            [{ text: 'OK' }]
+          );
         }}
       >
-        <Text style={styles.markerText}>{index + 1}</Text>
+        <View style={styles.flagPole} />
+        <View style={[styles.flagBody, { backgroundColor: color }]}>
+          <Text style={styles.markerText}>{index + 1}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -133,35 +230,114 @@ export default function RoomFloorPlanScreen() {
         </Card.Content>
       </Card>
 
-      <View style={styles.instructionCard}>
-        <Text variant="bodySmall" style={styles.instructionText}>
-          💡 Tippen Sie auf den Grundriss, um einen Mangel zu markieren
-        </Text>
-      </View>
+      {isPlacementMode && (
+        <View style={styles.placementModeCard}>
+          <Text variant="bodySmall" style={styles.placementModeText}>
+            📍 Tippen Sie auf den Grundriss, um einen Mangel zu platzieren
+          </Text>
+          <Button
+            mode="outlined"
+            onPress={() => setIsPlacementMode(false)}
+            style={styles.cancelButton}
+            textColor={Colors.error}
+          >
+            Abbrechen
+          </Button>
+        </View>
+      )}
 
       <View style={styles.floorPlanContainer}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={handleFloorPlanPress}
-          style={styles.floorPlanTouch}
-          onLayout={(event) => {
-            const { x, y, width, height } = event.nativeEvent.layout;
-            setImageLayout({ x, y, width, height });
-          }}
-        >
+        {room.floorPlanUrl ? (
+          <>
+            <View style={styles.floorPlanWrapper}>
+              <View
+                style={[
+                  styles.floorPlanTouch,
+                  isPlacementMode && styles.floorPlanTouchActive
+                ]}
+                onLayout={(event) => {
+                  const { x, y, width, height } = event.nativeEvent.layout;
+                  setImageLayout({ x, y, width, height });
+                }}
+              >
+                <WebView
+                ref={webViewRef}
+                source={{
+                  uri: `${API_URL}/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`
+                }}
+                style={styles.webview}
+                onLoadStart={(e) => {
+                  console.log('WebView load start:', e.nativeEvent.url);
+                  setPdfLoading(true);
+                }}
+                onLoadEnd={(e) => {
+                  console.log('WebView load end:', e.nativeEvent.url);
+                  setPdfLoading(false);
+                }}
+                onError={(error) => {
+                  console.error('WebView error:', error.nativeEvent);
+                  setPdfLoading(false);
+                  Alert.alert('Fehler', 'PDF konnte nicht geladen werden: ' + JSON.stringify(error.nativeEvent));
+                }}
+                onMessage={(event) => {
+                  const data = JSON.parse(event.nativeEvent.data);
+                  console.log('WebView message:', data);
+
+                  // Handle marker click from WebView
+                  if (data.type === 'markerClick') {
+                    const defect = roomDefects.find(d => d.id === data.markerId);
+                    if (defect) {
+                      Alert.alert(
+                        `Mangel ${data.markerIndex}: ${defect.title}`,
+                        defect.description || 'Keine Beschreibung',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  }
+
+                  // Handle placement click from WebView
+                  if (data.type === 'placementClick' && isPlacementMode) {
+                    setDefectPosition({ x: data.x, y: data.y });
+                    setDefectTitle('');
+                    setDefectDescription('');
+                    setDefectPriority(DefectPriority.MEDIUM);
+                    setShowDefectForm(true);
+                    setIsPlacementMode(false);
+                  }
+                }}
+                onHttpError={(event) => {
+                  console.error('HTTP error:', event.nativeEvent);
+                  Alert.alert('HTTP Fehler', `Status: ${event.nativeEvent.statusCode}`);
+                }}
+                originWhitelist={['*']}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                scrollEnabled={!isPlacementMode}
+                mixedContentMode="always"
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                automaticallyAdjustContentInsets={false}
+                bounces={true}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                minimumZoomScale={1}
+                maximumZoomScale={5}
+                opacity={1}
+              />
+              </View>
+            </View>
+          </>
+        ) : (
           <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>Grundriss Platzhalter</Text>
+            <Text style={styles.placeholderText}>Kein Grundriss vorhanden</Text>
             <Text style={styles.placeholderSubtext}>
-              Hier wird später der echte Grundriss angezeigt
+              Für diesen Raum wurde noch kein Grundriss hochgeladen.
             </Text>
             <Text style={styles.placeholderHint}>
-              Tippen Sie irgendwo, um einen Mangel zu markieren
+              Bitte laden Sie einen Grundriss über das Admin-Dashboard hoch.
             </Text>
           </View>
-        </TouchableOpacity>
-
-        {/* Render defect markers */}
-        {imageLayout.width > 0 && roomDefects.map((defect, index) => renderDefectMarker(defect, index))}
+        )}
       </View>
 
       <View style={styles.defectsListContainer}>
@@ -169,20 +345,26 @@ export default function RoomFloorPlanScreen() {
           Mängel in diesem Raum ({roomDefects.length})
         </Text>
         {roomDefects.length > 0 ? (
-          <View style={styles.defectsList}>
-            {roomDefects.map((defect, index) => (
-              <Chip
-                key={defect.id}
-                mode="outlined"
-                style={styles.defectChip}
-                onPress={() => {
-                  Alert.alert(defect.title, defect.description);
-                }}
-              >
-                {index + 1}. {defect.title}
-              </Chip>
-            ))}
-          </View>
+          <ScrollView
+            style={styles.defectsScrollView}
+            contentContainerStyle={styles.defectsScrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={styles.defectsList}>
+              {roomDefects.map((defect, index) => (
+                <Chip
+                  key={defect.id}
+                  mode="outlined"
+                  style={styles.defectChip}
+                  onPress={() => {
+                    Alert.alert(defect.title, defect.description);
+                  }}
+                >
+                  {index + 1}. {defect.title}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
         ) : (
           <Text variant="bodySmall" style={styles.noDefectsText}>
             Noch keine Mängel in diesem Raum
@@ -191,10 +373,21 @@ export default function RoomFloorPlanScreen() {
       </View>
 
       <FAB
+        icon="plus"
+        size="small"
+        style={[styles.fab, styles.fabAdd]}
+        label="Mängel setzen"
+        onPress={() => setIsPlacementMode(true)}
+        visible={!isPlacementMode}
+      />
+
+      <FAB
         icon="format-list-bulleted"
-        style={styles.fab}
-        label="Alle Mängel"
-        onPress={() => router.push('/project/defects')}
+        size="small"
+        style={[styles.fab, styles.fabList]}
+        label="Mängel anzeigen"
+        onPress={() => router.push(`/project/defects?roomId=${id}`)}
+        visible={!isPlacementMode}
       />
 
       {/* Defect Form Modal */}
@@ -323,6 +516,24 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: 'center',
   },
+  placementModeCard: {
+    backgroundColor: Colors.error + '15',
+    padding: Sizes.md,
+    marginHorizontal: Sizes.md,
+    marginBottom: Sizes.md,
+    borderRadius: Sizes.borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  placementModeText: {
+    color: Colors.error,
+    flex: 1,
+    marginRight: Sizes.sm,
+  },
+  cancelButton: {
+    borderColor: Colors.error,
+  },
   floorPlanContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -331,10 +542,51 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  floorPlanWrapper: {
+    flex: 1,
+    position: 'relative',
+    overflow: 'hidden',
+  },
   floorPlanTouch: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  floorPlanTouchActive: {
+    borderWidth: 3,
+    borderColor: Colors.error,
+    borderStyle: 'dashed',
+  },
+  webview: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent',
+    opacity: 1,
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: Colors.surface,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  loadingText: {
+    marginTop: Sizes.md,
+    color: Colors.textSecondary,
   },
   placeholderContainer: {
     flex: 1,
@@ -362,42 +614,79 @@ const styles = StyleSheet.create({
   },
   defectMarker: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 44,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 10,
+    pointerEvents: 'auto',
+  },
+  flagPole: {
+    position: 'absolute',
+    width: 3,
+    height: 44,
+    backgroundColor: '#333',
+    left: 0,
+    top: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 1, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  flagBody: {
+    position: 'absolute',
+    left: 3,
+    top: 0,
+    width: 32,
+    height: 24,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#fff',
-    elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.4,
     shadowRadius: 3,
+    elevation: 5,
   },
   markerText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   defectsListContainer: {
     padding: Sizes.md,
     backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    maxHeight: 180,
   },
   defectsTitle: {
     fontWeight: '600',
     color: Colors.text,
     marginBottom: Sizes.sm,
   },
+  defectsScrollView: {
+    maxHeight: 130,
+  },
+  defectsScrollContent: {
+    paddingBottom: Sizes.xs,
+  },
   defectsList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Sizes.sm,
+    justifyContent: 'space-between',
   },
   defectChip: {
-    marginBottom: Sizes.xs,
+    width: '48%',
+    marginBottom: Sizes.sm,
   },
   noDefectsText: {
     color: Colors.textSecondary,
@@ -406,8 +695,14 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: Sizes.md,
-    bottom: Sizes.md,
     backgroundColor: Colors.primary,
+    transform: [{ scale: 0.75 }],
+  },
+  fabAdd: {
+    top: Sizes.md + 50,
+  },
+  fabList: {
+    top: Sizes.md,
   },
   modalOverlay: {
     flex: 1,

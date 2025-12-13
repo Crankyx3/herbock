@@ -166,17 +166,42 @@ export const createDefect = async (req: AuthRequest, res: Response) => {
         originalDescription,
         originalLanguage,
         priority || 'MEDIUM',
-        req.userId!,
+        req.userId || 'employee-user-id-001', // Fallback to default employee user
         assignedToId,
         location?.x,
         location?.y,
         location?.floor,
-        JSON.stringify(images || []),
+        images || [],
         audioUrl,
       ]
     );
 
-    res.status(201).json(result.rows[0]);
+    // Transform the response to match the format from getDefectsByProject
+    const row = result.rows[0];
+    const defect = {
+      id: row.id,
+      projectId: row.projectId,
+      roomId: row.roomId,
+      title: row.title,
+      description: row.description,
+      originalDescription: row.originalDescription,
+      originalLanguage: row.originalLanguage,
+      status: row.status,
+      priority: row.priority,
+      location: row.locationX && row.locationY
+        ? {
+            x: row.locationX,
+            y: row.locationY,
+            floor: row.locationFloor,
+          }
+        : undefined,
+      images: row.images,
+      audioUrl: row.audioUrl,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+
+    res.status(201).json(defect);
   } catch (error) {
     console.error('Create defect error:', error);
     res.status(500).json({ error: 'Failed to create defect' });
