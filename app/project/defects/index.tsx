@@ -30,9 +30,4 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.surface,
   },
-  tabContainer: {
-    padding: Sizes.md,
-    backgroundColor: Colors.background,
-    elevation: 2,
-  },
 });
