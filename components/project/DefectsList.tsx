@@ -117,11 +117,14 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
     return Object.entries(grouped).map(([key, value]) => ({
       roomId: key,
       roomName: value.room,
-      defects: value.defects,
+      // Sort defects by creation date (oldest first) to match flag numbering
+      defects: value.defects.sort((a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      ),
     }));
   };
 
-  const renderDefect = (defect: Defect) => (
+  const renderDefect = (defect: Defect, index: number) => (
     <TouchableOpacity
       key={defect.id}
       onPress={() => {
@@ -133,7 +136,7 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
       <View style={styles.defectHeader}>
         <View style={styles.defectTitleRow}>
           <Text variant="titleSmall" style={styles.defectTitle} numberOfLines={1}>
-            {defect.title}
+            Mangel {index + 1}: {defect.title}
           </Text>
           <Chip
             mode="flat"
@@ -195,7 +198,7 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
             </View>
           </View>
 
-          {item.defects.map((defect) => renderDefect(defect))}
+          {item.defects.map((defect, index) => renderDefect(defect, index))}
         </Card.Content>
       </Card>
     );
