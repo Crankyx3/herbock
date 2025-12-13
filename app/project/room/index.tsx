@@ -695,10 +695,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
   },
   fabAdd: {
-    bottom: Sizes.md + 60,
+    top: Sizes.md + 60,
   },
   fabList: {
-    bottom: Sizes.md,
+    top: Sizes.md,
   },
   modalOverlay: {
     flex: 1,
