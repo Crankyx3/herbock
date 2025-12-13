@@ -275,6 +275,11 @@ async function deleteRoomFromProject(roomId) {
 }
 
 async function viewRoomDetail(projectId, roomId) {
+    // Navigate to dedicated room view page with floor plan and markers
+    window.location.href = `/admin/room-view.html?projectId=${projectId}&roomId=${roomId}`;
+    return;
+
+    // OLD CODE - keeping for reference but not used
     try {
         currentView = 'room-detail';
         currentProjectId = projectId;

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raum - Herbock Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #333;
+        }
+
+        .floor-plan-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        #floor-plan-viewer {
+            width: 100%;
+            height: 70vh;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .defects-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .defect-item {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+        }
+
+        .defect-item:last-child {
+            border-bottom: none;
+        }
+
+        .defect-number {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            background: #2196F3;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .priority-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .priority-critical {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .priority-high {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .priority-medium {
+            background: #fff9c4;
+            color: #f57f17;
+        }
+
+        .priority-low {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+
+        .status-open {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status-in-progress {
+            background: #fff3e0;
+            color: #ef6c00;
+        }
+
+        .status-resolved {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .btn-back {
+            background: white;
+            border: 1px solid #ddd;
+            color: #333;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-back:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="index.html" class="btn-back">
+                        <i class="bi bi-arrow-left"></i> Zurück
+                    </a>
+                    <h1 style="display: inline; margin-left: 20px;" id="room-title">Lade Raum...</h1>
+                </div>
+                <div id="room-info" class="text-muted"></div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="floor-plan-container">
+                    <h3>Grundriss</h3>
+                    <div id="floor-plan-viewer">
+                        <div class="loading">Lade Grundriss...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="defects-list">
+                    <h3>Mängel (<span id="defects-count">0</span>)</h3>
+                    <div id="defects-container">
+                        <div class="loading">Lade Mängel...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin;
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('roomId');
+        const projectId = urlParams.get('projectId');
+
+        let room = null;
+        let defects = [];
+
+        async function loadRoom() {
+            try {
+                // Load room details
+                const roomResponse = await fetch(`${API_URL}/api/rooms/${roomId}`);
+                room = await roomResponse.json();
+
+                document.getElementById('room-title').textContent = room.name;
+                document.getElementById('room-info').textContent =
+                    `${room.floor || 'Keine Etage'} · ${room.area ? room.area + ' m²' : 'Keine Fläche'}`;
+
+                // Load defects
+                const defectsResponse = await fetch(`${API_URL}/api/projects/${projectId}/defects`);
+                const allDefects = await defectsResponse.json();
+                defects = allDefects
+                    .filter(d => d.roomId === roomId)
+                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+                renderDefectsList();
+                renderFloorPlan();
+            } catch (error) {
+                console.error('Error loading room:', error);
+                alert('Fehler beim Laden des Raums');
+            }
+        }
+
+        function renderDefectsList() {
+            const container = document.getElementById('defects-container');
+            document.getElementById('defects-count').textContent = defects.length;
+
+            if (defects.length === 0) {
+                container.innerHTML = '<p class="text-muted">Keine Mängel vorhanden</p>';
+                return;
+            }
+
+            container.innerHTML = defects.map((defect, index) => `
+                <div class="defect-item" onclick="showDefectDetails('${defect.id}')">
+                    <div>
+                        <span class="defect-number">${index + 1}</span>
+                        <strong>${defect.title}</strong>
+                        <span class="priority-badge priority-${defect.priority.toLowerCase()}">
+                            ${getPriorityLabel(defect.priority)}
+                        </span>
+                        <span class="status-badge status-${defect.status.toLowerCase().replace('_', '-')}">
+                            ${getStatusLabel(defect.status)}
+                        </span>
+                    </div>
+                    ${defect.description ? `<p class="text-muted mb-0 mt-2" style="margin-left: 40px;">${defect.description}</p>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderFloorPlan() {
+            const viewer = document.getElementById('floor-plan-viewer');
+
+            if (!room.floorPlanUrl) {
+                viewer.innerHTML = '<div class="loading">Kein Grundriss verfügbar</div>';
+                return;
+            }
+
+            // Create iframe with PDF viewer and markers
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            iframe.src = `/pdf-viewer.html?file=${encodeURIComponent(room.floorPlanUrl)}`;
+
+            viewer.innerHTML = '';
+            viewer.appendChild(iframe);
+
+            // Send markers to iframe after it loads
+            iframe.onload = () => {
+                const markers = defects.map((defect, index) => ({
+                    id: defect.id,
+                    index: index + 1,
+                    x: defect.location?.x || 0,
+                    y: defect.location?.y || 0,
+                    title: defect.title,
+                    description: defect.description || '',
+                    priority: defect.priority,
+                }));
+
+                const markerData = {};
+                defects.forEach(defect => {
+                    markerData[defect.id] = {
+                        title: defect.title,
+                        description: defect.description || 'Keine Beschreibung',
+                        priority: defect.priority,
+                        status: defect.status,
+                    };
+                });
+
+                // Send markers to iframe
+                setTimeout(() => {
+                    iframe.contentWindow.postMessage(
+                        JSON.stringify({ type: 'setMarkers', markers, markerData }),
+                        '*'
+                    );
+                }, 1000);
+            };
+        }
+
+        function showDefectDetails(defectId) {
+            const defect = defects.find(d => d.id === defectId);
+            if (!defect) return;
+
+            const index = defects.findIndex(d => d.id === defectId) + 1;
+
+            alert(`Mangel ${index}: ${defect.title}\n\n${defect.description || 'Keine Beschreibung'}\n\nStatus: ${getStatusLabel(defect.status)}\nPriorität: ${getPriorityLabel(defect.priority)}`);
+        }
+
+        function getPriorityLabel(priority) {
+            const labels = {
+                'CRITICAL': 'Kritisch',
+                'HIGH': 'Hoch',
+                'MEDIUM': 'Mittel',
+                'LOW': 'Niedrig'
+            };
+            return labels[priority] || priority;
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'OPEN': 'Offen',
+                'IN_PROGRESS': 'In Bearbeitung',
+                'RESOLVED': 'Behoben',
+                'VERIFIED': 'Verifiziert'
+            };
+            return labels[status] || status;
+        }
+
+        if (roomId && projectId) {
+            loadRoom();
+        } else {
+            document.getElementById('room-title').textContent = 'Fehler: Raum ID fehlt';
+            document.getElementById('floor-plan-viewer').innerHTML =
+                '<div class="loading">Fehler: Raum ID fehlt in URL</div>';
+        }
+    </script>
+</body>
+</html>
