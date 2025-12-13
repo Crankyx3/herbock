@@ -153,7 +153,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <a href="index.html" class="btn-back">
-                        <i class="bi bi-arrow-left"></i> Zur�ck
+                        <i class="bi bi-arrow-left"></i> Zurück
                     </a>
                     <h1 style="display: inline; margin-left: 20px;" id="room-title">Lade Raum...</h1>
                 </div>
@@ -199,7 +199,7 @@
 
                 document.getElementById('room-title').textContent = room.name;
                 document.getElementById('room-info').textContent =
-                    `${room.floor || 'Keine Etage'} � ${room.area ? room.area + ' m�' : 'Keine Fl�che'}`;
+                    `${room.floor || 'Keine Etage'} · ${room.area ? room.area + ' m²' : 'Keine Fläche'}`;
 
                 // Load defects
                 const defectsResponse = await fetch(`${API_URL}/api/projects/${projectId}/defects`);
@@ -246,7 +246,7 @@
             const viewer = document.getElementById('floor-plan-viewer');
 
             if (!room.floorPlanUrl) {
-                viewer.innerHTML = '<div class="loading">Kein Grundriss verf�gbar</div>';
+                viewer.innerHTML = '<div class="loading">Kein Grundriss verfügbar</div>';
                 return;
             }
 
