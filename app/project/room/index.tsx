@@ -374,6 +374,7 @@ export default function RoomFloorPlanScreen() {
 
       <FAB
         icon="plus"
+        size="small"
         style={[styles.fab, styles.fabAdd]}
         label="Mangel setzen"
         onPress={() => setIsPlacementMode(true)}
@@ -382,7 +383,9 @@ export default function RoomFloorPlanScreen() {
 
       <FAB
         icon="format-list-bulleted"
+        size="small"
         style={[styles.fab, styles.fabList]}
+        label="Mängel anzeigen"
         onPress={() => router.push(`/project/defects?roomId=${id}`)}
         visible={!isPlacementMode}
       />
