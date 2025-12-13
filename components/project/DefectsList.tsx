@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
-import { Card, Text, Chip, IconButton, Searchbar, FAB } from 'react-native-paper';
+import { View, StyleSheet, FlatList, TouchableOpacity, Modal, ScrollView } from 'react-native';
+import { Card, Text, Chip, IconButton, Searchbar, Button, Divider } from 'react-native-paper';
 import { useDefectsStore } from '../../store/defectsStore';
 import { useProjectStore } from '../../store/projectStore';
 import { Defect, DefectStatus, DefectPriority, Room } from '../../types';
 import { Colors, Sizes } from '../../constants';
-import { useRouter } from 'expo-router';
 
 interface DefectsListProps {
   roomId?: string;
@@ -15,7 +14,8 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
   const { defects, rooms, loadDefects } = useDefectsStore();
   const { selectedProject } = useProjectStore();
   const [searchQuery, setSearchQuery] = useState('');
-  const router = useRouter();
+  const [selectedDefect, setSelectedDefect] = useState<Defect | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     if (selectedProject) {
@@ -125,8 +125,8 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
     <TouchableOpacity
       key={defect.id}
       onPress={() => {
-        // TODO: Navigate to defect detail
-        console.log('Navigate to defect:', defect.id);
+        setSelectedDefect(defect);
+        setShowModal(true);
       }}
       style={styles.defectItem}
     >
@@ -228,14 +228,115 @@ export const DefectsList = ({ roomId }: DefectsListProps) => {
         contentContainerStyle={styles.listContent}
       />
 
-      <FAB
-        icon="plus"
-        style={styles.fab}
-        onPress={() => {
-          // TODO: Navigate to add defect
-          console.log('Add defect');
-        }}
-      />
+      {/* Defect Detail Modal */}
+      <Modal
+        visible={showModal}
+        onRequestClose={() => setShowModal(false)}
+        animationType="slide"
+        transparent={true}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <ScrollView style={styles.modalContent}>
+              {selectedDefect && (
+                <>
+                  <View style={styles.modalHeader}>
+                    <Text variant="headlineSmall" style={styles.modalTitle}>
+                      {selectedDefect.title}
+                    </Text>
+                    <IconButton
+                      icon="close"
+                      size={24}
+                      onPress={() => setShowModal(false)}
+                      style={styles.modalCloseButton}
+                    />
+                  </View>
+
+                  <Divider style={styles.modalDivider} />
+
+                  <View style={styles.modalSection}>
+                    <Text variant="labelLarge" style={styles.modalLabel}>
+                      Beschreibung
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.modalText}>
+                      {selectedDefect.description || 'Keine Beschreibung vorhanden'}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalSection}>
+                    <Text variant="labelLarge" style={styles.modalLabel}>
+                      Status
+                    </Text>
+                    <Chip
+                      mode="outlined"
+                      style={styles.modalChip}
+                      textStyle={{ color: getStatusColor(selectedDefect.status) }}
+                    >
+                      {getStatusLabel(selectedDefect.status)}
+                    </Chip>
+                  </View>
+
+                  <View style={styles.modalSection}>
+                    <Text variant="labelLarge" style={styles.modalLabel}>
+                      Priorität
+                    </Text>
+                    <Chip
+                      mode="flat"
+                      style={[styles.modalChip, { backgroundColor: getPriorityColor(selectedDefect.priority) + '20' }]}
+                      textStyle={{ color: getPriorityColor(selectedDefect.priority) }}
+                    >
+                      {getPriorityLabel(selectedDefect.priority)}
+                    </Chip>
+                  </View>
+
+                  <View style={styles.modalSection}>
+                    <Text variant="labelLarge" style={styles.modalLabel}>
+                      Raum
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.modalText}>
+                      {getRoomName(selectedDefect.roomId)}
+                    </Text>
+                  </View>
+
+                  {selectedDefect.images && selectedDefect.images.length > 0 && (
+                    <View style={styles.modalSection}>
+                      <Text variant="labelLarge" style={styles.modalLabel}>
+                        Bilder
+                      </Text>
+                      <Text variant="bodyMedium" style={styles.modalText}>
+                        {selectedDefect.images.length} Bild(er)
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.modalSection}>
+                    <Text variant="labelLarge" style={styles.modalLabel}>
+                      Erstellt am
+                    </Text>
+                    <Text variant="bodyMedium" style={styles.modalText}>
+                      {new Date(selectedDefect.createdAt).toLocaleDateString('de-DE', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+
+                  <Button
+                    mode="contained"
+                    onPress={() => setShowModal(false)}
+                    style={styles.modalButton}
+                  >
+                    Schließen
+                  </Button>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -332,12 +433,65 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   listContent: {
-    paddingBottom: Sizes.xxl + 40,
+    paddingBottom: Sizes.xxl,
   },
-  fab: {
-    position: 'absolute',
-    right: Sizes.md,
-    bottom: Sizes.md,
-    backgroundColor: Colors.primary,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Sizes.lg,
+  },
+  modalContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    maxHeight: '80%',
+    width: '100%',
+    maxWidth: 500,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalContent: {
+    padding: Sizes.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Sizes.md,
+  },
+  modalTitle: {
+    flex: 1,
+    fontWeight: 'bold',
+    color: Colors.text,
+    paddingRight: Sizes.md,
+  },
+  modalCloseButton: {
+    margin: -8,
+  },
+  modalDivider: {
+    marginBottom: Sizes.lg,
+  },
+  modalSection: {
+    marginBottom: Sizes.lg,
+  },
+  modalLabel: {
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: Sizes.sm,
+  },
+  modalText: {
+    color: Colors.textSecondary,
+    lineHeight: 22,
+  },
+  modalChip: {
+    alignSelf: 'flex-start',
+  },
+  modalButton: {
+    marginTop: Sizes.md,
+    marginBottom: Sizes.lg,
   },
 });
