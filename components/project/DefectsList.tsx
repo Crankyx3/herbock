@@ -374,13 +374,13 @@ const styles = StyleSheet.create({
     marginTop: Sizes.xs,
   },
   defectItem: {
-    marginBottom: Sizes.md,
-    paddingBottom: Sizes.md,
+    marginBottom: Sizes.lg,
+    paddingBottom: Sizes.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border + '40',
   },
   defectHeader: {
-    gap: Sizes.sm,
+    gap: Sizes.md,
   },
   defectTitleRow: {
     flexDirection: 'row',
@@ -394,20 +394,22 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   priorityChip: {
-    height: 24,
+    height: 32,
+    minWidth: 80,
   },
   defectDescription: {
     color: Colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   defectFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: Sizes.xs,
+    marginTop: Sizes.sm,
   },
   statusChip: {
-    height: 24,
+    height: 32,
+    minWidth: 100,
   },
   defectMeta: {
     flexDirection: 'row',

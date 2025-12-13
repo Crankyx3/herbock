@@ -376,7 +376,7 @@ export default function RoomFloorPlanScreen() {
         icon="plus"
         size="small"
         style={[styles.fab, styles.fabAdd]}
-        label="Mangel setzen"
+        label="Mängel setzen"
         onPress={() => setIsPlacementMode(true)}
         visible={!isPlacementMode}
       />
