@@ -345,20 +345,26 @@ export default function RoomFloorPlanScreen() {
           Mängel in diesem Raum ({roomDefects.length})
         </Text>
         {roomDefects.length > 0 ? (
-          <View style={styles.defectsList}>
-            {roomDefects.map((defect, index) => (
-              <Chip
-                key={defect.id}
-                mode="outlined"
-                style={styles.defectChip}
-                onPress={() => {
-                  Alert.alert(defect.title, defect.description);
-                }}
-              >
-                {index + 1}. {defect.title}
-              </Chip>
-            ))}
-          </View>
+          <ScrollView
+            style={styles.defectsScrollView}
+            contentContainerStyle={styles.defectsScrollContent}
+            showsVerticalScrollIndicator={true}
+          >
+            <View style={styles.defectsList}>
+              {roomDefects.map((defect, index) => (
+                <Chip
+                  key={defect.id}
+                  mode="outlined"
+                  style={styles.defectChip}
+                  onPress={() => {
+                    Alert.alert(defect.title, defect.description);
+                  }}
+                >
+                  {index + 1}. {defect.title}
+                </Chip>
+              ))}
+            </View>
+          </ScrollView>
         ) : (
           <Text variant="bodySmall" style={styles.noDefectsText}>
             Noch keine Mängel in diesem Raum
@@ -657,19 +663,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    maxHeight: 180,
   },
   defectsTitle: {
     fontWeight: '600',
     color: Colors.text,
     marginBottom: Sizes.sm,
   },
+  defectsScrollView: {
+    maxHeight: 130,
+  },
+  defectsScrollContent: {
+    paddingBottom: Sizes.xs,
+  },
   defectsList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Sizes.sm,
+    justifyContent: 'space-between',
   },
   defectChip: {
-    marginBottom: Sizes.xs,
+    width: '48%',
+    marginBottom: Sizes.sm,
   },
   noDefectsText: {
     color: Colors.textSecondary,
