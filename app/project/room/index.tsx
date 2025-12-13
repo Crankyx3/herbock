@@ -696,9 +696,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Sizes.md,
     backgroundColor: Colors.primary,
+    transform: [{ scale: 0.75 }],
   },
   fabAdd: {
-    top: Sizes.md + 60,
+    top: Sizes.md + 50,
   },
   fabList: {
     top: Sizes.md,
