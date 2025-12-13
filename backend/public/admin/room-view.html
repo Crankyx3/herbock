@@ -153,7 +153,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <a href="index.html" class="btn-back">
-                        <i class="bi bi-arrow-left"></i> Zurück
+                        <i class="bi bi-arrow-left"></i> Zurï¿½ck
                     </a>
                     <h1 style="display: inline; margin-left: 20px;" id="room-title">Lade Raum...</h1>
                 </div>
@@ -173,9 +173,9 @@
 
             <div class="col-md-4">
                 <div class="defects-list">
-                    <h3>Mängel (<span id="defects-count">0</span>)</h3>
+                    <h3>MÃ¤ngel (<span id="defects-count">0</span>)</h3>
                     <div id="defects-container">
-                        <div class="loading">Lade Mängel...</div>
+                        <div class="loading">Lade MÃ¤ngel...</div>
                     </div>
                 </div>
             </div>
@@ -199,7 +199,7 @@
 
                 document.getElementById('room-title').textContent = room.name;
                 document.getElementById('room-info').textContent =
-                    `${room.floor || 'Keine Etage'} · ${room.area ? room.area + ' m²' : 'Keine Fläche'}`;
+                    `${room.floor || 'Keine Etage'} ï¿½ ${room.area ? room.area + ' mï¿½' : 'Keine Flï¿½che'}`;
 
                 // Load defects
                 const defectsResponse = await fetch(`${API_URL}/api/projects/${projectId}/defects`);
@@ -221,7 +221,7 @@
             document.getElementById('defects-count').textContent = defects.length;
 
             if (defects.length === 0) {
-                container.innerHTML = '<p class="text-muted">Keine Mängel vorhanden</p>';
+                container.innerHTML = '<p class="text-muted">Keine MÃ¤ngel vorhanden</p>';
                 return;
             }
 
@@ -246,7 +246,7 @@
             const viewer = document.getElementById('floor-plan-viewer');
 
             if (!room.floorPlanUrl) {
-                viewer.innerHTML = '<div class="loading">Kein Grundriss verfügbar</div>';
+                viewer.innerHTML = '<div class="loading">Kein Grundriss verfï¿½gbar</div>';
                 return;
             }
 
@@ -298,7 +298,7 @@
 
             const index = defects.findIndex(d => d.id === defectId) + 1;
 
-            alert(`Mangel ${index}: ${defect.title}\n\n${defect.description || 'Keine Beschreibung'}\n\nStatus: ${getStatusLabel(defect.status)}\nPriorität: ${getPriorityLabel(defect.priority)}`);
+            alert(`Mangel ${index}: ${defect.title}\n\n${defect.description || 'Keine Beschreibung'}\n\nStatus: ${getStatusLabel(defect.status)}\nPrioritÃ¤t: ${getPriorityLabel(defect.priority)}`);
         }
 
         function getPriorityLabel(priority) {
